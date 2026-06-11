@@ -1,0 +1,21 @@
+
+Showing Recent Issues
+
+Prepare build
+error: Multiple commands produce '/Users/username/Library/Developer/Xcode/DerivedData/DebateTVAIDebateArena-cbuwbwovptjiuxaeielfribcmhfv/Build/Intermediates.noindex/DebateTVAIDebateArena.build/Debug-iphonesimulator/DebateTVAIDebateArena.build/Objects-normal/arm64/DebateViewModel.stringsdata'
+    note: Target 'DebateTVAIDebateArena' (project 'DebateTVAIDebateArena') has Swift tasks not blocking downstream targets
+    note: Target 'DebateTVAIDebateArena' (project 'DebateTVAIDebateArena') has Swift tasks not blocking downstream targets
+
+
+Multiple commands produce '/Users/username/Library/Developer/Xcode/DerivedData/DebateTVAIDebateArena-cbuwbwovptjiuxaeielfribcmhfv/Build/Intermediates.noindex/DebateTVAIDebateArena.build/Debug-iphonesimulator/DebateTVAIDebateArena.build/Objects-normal/arm64/DebateViewModel.stringsdata'
+
+
+Build target DebateTVAIDebateArena of project DebateTVAIDebateArena with configuration Debug
+warning: duplicate output file '/Users/username/Library/Developer/Xcode/DerivedData/DebateTVAIDebateArena-cbuwbwovptjiuxaeielfribcmhfv/Build/Intermediates.noindex/DebateTVAIDebateArena.build/Debug-iphonesimulator/DebateTVAIDebateArena.build/Objects-normal/arm64/DebateViewModel.stringsdata' on task: SwiftDriver Compilation DebateTVAIDebateArena normal arm64 com.apple.xcode.tools.swift.compiler (in target 'DebateTVAIDebateArena' from project 'DebateTVAIDebateArena')
+
+
+duplicate output file '/Users/username/Library/Developer/Xcode/DerivedData/DebateTVAIDebateArena-cbuwbwovptjiuxaeielfribcmhfv/Build/Intermediates.noindex/DebateTVAIDebateArena.build/Debug-iphonesimulator/DebateTVAIDebateArena.build/Objects-normal/arm64/DebateViewModel.stringsdata' on task: SwiftDriver Compilation DebateTVAIDebateArena normal arm64 com.apple.xcode.tools.swift.compiler
+
+
+
+Build failed    2/22/26, 2:30 PM    1.8 seconds

@@ -1,0 +1,395 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		02362496D787E7D7A8D90973 /* DebateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E974688E7AEF520BE22D3C /* DebateService.swift */; };
+		12943CC44747547E403B70B0 /* DebateViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C63FE2F48909085B881EC4 /* DebateViewModel.swift */; };
+		191FF1562F787BF725018AAA /* CommonViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B02057720E09ED3184134FAC /* CommonViews.swift */; };
+		326AD81BFC9103B5138DCE2E /* DebateTVAIDebateArenaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6007F25EE1B88C22105E8C8A /* DebateTVAIDebateArenaApp.swift */; };
+		4185941AF8D4BA95007EBAE8 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9DF07D487B6BFF4D89C36E1 /* Config.swift */; };
+		4CBE4CDBC2A606717061B82E /* MatchmakingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1587DD0D144657CFF987B4F9 /* MatchmakingView.swift */; };
+		515EDA96F4D85853DF5FE037 /* VerdictView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B718C4BBAD6E65C64F61515 /* VerdictView.swift */; };
+		6122F4ED7D8A85A44F3B4B7A /* DebateArenaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5727FACA18CB7D487F0345DE /* DebateArenaView.swift */; };
+		6EDD60CA69D729F2DF02657F /* ScanlineOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C25A92329D90DFE2E508FF4 /* ScanlineOverlay.swift */; };
+		7249D2160FC242FC9F972F03 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF0151F0501216E0CBC7DB19 /* HistoryView.swift */; };
+		7C4A6C14888D4F4F4908B5EE /* AIJudgeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF7E048F4D9DFB6EE64750F4 /* AIJudgeService.swift */; };
+		94A38F537D94A2ADF6E212BA /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECAFEB3438E68385D88369DE /* HomeView.swift */; };
+		9DF0C3B9A6F009AAD3CAAD38 /* CameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B045801355079C8701853BE3 /* CameraPreviewView.swift */; };
+		A33D2E567EDDF2F7F89047D9 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 235FBEF18F91608FF0B40153 /* ProfileView.swift */; };
+		B6FCE643089B97576EB1A7C4 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B5CD4CC70557BF78E06BC8 /* OnboardingView.swift */; };
+		D239907A5F71E8AA835BA02E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C43DCC851D6FAA71692B944 /* Foundation.framework */; };
+		E488EE490254CB9A07DDB285 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FADA9DCBBFE97F84FE7372D3 /* ContentView.swift */; };
+		E8F0D807D7D187B85D00D5D3 /* DebateModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0ED331AB138BA87D0F611E /* DebateModels.swift */; };
+		F09AF55BCCE0483F9F0898DF /* BroadcastTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7CE9813F22DC31945441846 /* BroadcastTheme.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		1587DD0D144657CFF987B4F9 /* MatchmakingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MatchmakingView.swift; sourceTree = "<group>"; };
+		235FBEF18F91608FF0B40153 /* ProfileView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		47E974688E7AEF520BE22D3C /* DebateService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DebateService.swift; sourceTree = "<group>"; };
+		4C43DCC851D6FAA71692B944 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		5727FACA18CB7D487F0345DE /* DebateArenaView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DebateArenaView.swift; sourceTree = "<group>"; };
+		6007F25EE1B88C22105E8C8A /* DebateTVAIDebateArenaApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DebateTVAIDebateArenaApp.swift; sourceTree = "<group>"; };
+		783B96C136EF650957486033 /* DebateTVAIDebateArena.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DebateTVAIDebateArena.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7C25A92329D90DFE2E508FF4 /* ScanlineOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScanlineOverlay.swift; sourceTree = "<group>"; };
+		8B718C4BBAD6E65C64F61515 /* VerdictView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VerdictView.swift; sourceTree = "<group>"; };
+		A0B5CD4CC70557BF78E06BC8 /* OnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		B02057720E09ED3184134FAC /* CommonViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CommonViews.swift; sourceTree = "<group>"; };
+		B045801355079C8701853BE3 /* CameraPreviewView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
+		B9DF07D487B6BFF4D89C36E1 /* Config.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
+		C7CE9813F22DC31945441846 /* BroadcastTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BroadcastTheme.swift; sourceTree = "<group>"; };
+		E9C63FE2F48909085B881EC4 /* DebateViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DebateViewModel.swift; sourceTree = "<group>"; };
+		ECAFEB3438E68385D88369DE /* HomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		EF0151F0501216E0CBC7DB19 /* HistoryView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		EF7E048F4D9DFB6EE64750F4 /* AIJudgeService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AIJudgeService.swift; sourceTree = "<group>"; };
+		FADA9DCBBFE97F84FE7372D3 /* ContentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		FF0ED331AB138BA87D0F611E /* DebateModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DebateModels.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		88B69295E019CED8027ECBAC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D239907A5F71E8AA835BA02E /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		86F3F79BA95D426923379CC3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				783B96C136EF650957486033 /* DebateTVAIDebateArena.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		9FFE3ABB395BD6543E8BB5A6 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				4C43DCC851D6FAA71692B944 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		D844E9109E5F9C3AB1F9A179 = {
+			isa = PBXGroup;
+			children = (
+				86F3F79BA95D426923379CC3 /* Products */,
+				DA66221887931502CB05F3FA /* Frameworks */,
+				F6591A030B95CA13BE04535B /* App */,
+			);
+			sourceTree = "<group>";
+		};
+		DA66221887931502CB05F3FA /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				9FFE3ABB395BD6543E8BB5A6 /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		F6591A030B95CA13BE04535B /* App */ = {
+			isa = PBXGroup;
+			children = (
+				1587DD0D144657CFF987B4F9 /* MatchmakingView.swift */,
+				235FBEF18F91608FF0B40153 /* ProfileView.swift */,
+				B045801355079C8701853BE3 /* CameraPreviewView.swift */,
+				EF7E048F4D9DFB6EE64750F4 /* AIJudgeService.swift */,
+				6007F25EE1B88C22105E8C8A /* DebateTVAIDebateArenaApp.swift */,
+				C7CE9813F22DC31945441846 /* BroadcastTheme.swift */,
+				ECAFEB3438E68385D88369DE /* HomeView.swift */,
+				B9DF07D487B6BFF4D89C36E1 /* Config.swift */,
+				E9C63FE2F48909085B881EC4 /* DebateViewModel.swift */,
+				8B718C4BBAD6E65C64F61515 /* VerdictView.swift */,
+				B02057720E09ED3184134FAC /* CommonViews.swift */,
+				EF0151F0501216E0CBC7DB19 /* HistoryView.swift */,
+				FF0ED331AB138BA87D0F611E /* DebateModels.swift */,
+				47E974688E7AEF520BE22D3C /* DebateService.swift */,
+				5727FACA18CB7D487F0345DE /* DebateArenaView.swift */,
+				A0B5CD4CC70557BF78E06BC8 /* OnboardingView.swift */,
+				FADA9DCBBFE97F84FE7372D3 /* ContentView.swift */,
+				7C25A92329D90DFE2E508FF4 /* ScanlineOverlay.swift */,
+			);
+			name = App;
+			path = Sources/App;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D8045713BE5B064A7F15DD3F /* DebateTVAIDebateArena */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FE3E54D4AB70636968972C96 /* Build configuration list for PBXNativeTarget "DebateTVAIDebateArena" */;
+			buildPhases = (
+				9013A90E58D055359FDD410C /* Sources */,
+				88B69295E019CED8027ECBAC /* Frameworks */,
+				2595CC6CD58234FFA0515639 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DebateTVAIDebateArena;
+			productName = DebateTVAIDebateArena;
+			productReference = 783B96C136EF650957486033 /* DebateTVAIDebateArena.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E2A17E273D0704705267760F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = 473A30FECD97BB65B64C13D9 /* Build configuration list for PBXProject "DebateTVAIDebateArena" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = D844E9109E5F9C3AB1F9A179;
+			minimizedProjectReferenceProxies = 0;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 86F3F79BA95D426923379CC3 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D8045713BE5B064A7F15DD3F /* DebateTVAIDebateArena */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		2595CC6CD58234FFA0515639 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		9013A90E58D055359FDD410C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4CBE4CDBC2A606717061B82E /* MatchmakingView.swift in Sources */,
+				A33D2E567EDDF2F7F89047D9 /* ProfileView.swift in Sources */,
+				9DF0C3B9A6F009AAD3CAAD38 /* CameraPreviewView.swift in Sources */,
+				7C4A6C14888D4F4F4908B5EE /* AIJudgeService.swift in Sources */,
+				326AD81BFC9103B5138DCE2E /* DebateTVAIDebateArenaApp.swift in Sources */,
+				F09AF55BCCE0483F9F0898DF /* BroadcastTheme.swift in Sources */,
+				94A38F537D94A2ADF6E212BA /* HomeView.swift in Sources */,
+				4185941AF8D4BA95007EBAE8 /* Config.swift in Sources */,
+				12943CC44747547E403B70B0 /* DebateViewModel.swift in Sources */,
+				515EDA96F4D85853DF5FE037 /* VerdictView.swift in Sources */,
+				191FF1562F787BF725018AAA /* CommonViews.swift in Sources */,
+				7249D2160FC242FC9F972F03 /* HistoryView.swift in Sources */,
+				E8F0D807D7D187B85D00D5D3 /* DebateModels.swift in Sources */,
+				02362496D787E7D7A8D90973 /* DebateService.swift in Sources */,
+				6122F4ED7D8A85A44F3B4B7A /* DebateArenaView.swift in Sources */,
+				B6FCE643089B97576EB1A7C4 /* OnboardingView.swift in Sources */,
+				E488EE490254CB9A07DDB285 /* ContentView.swift in Sources */,
+				6EDD60CA69D729F2DF02657F /* ScanlineOverlay.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		5EDB672026D26995909BDF4C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.DebateTVAIDebateArena;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		6F40B47D38C2DBEC704CB1D4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.DebateTVAIDebateArena;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		B93534C00AD9A626BFD5619C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		EA7825B0730119898F146615 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		473A30FECD97BB65B64C13D9 /* Build configuration list for PBXProject "DebateTVAIDebateArena" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B93534C00AD9A626BFD5619C /* Debug */,
+				EA7825B0730119898F146615 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FE3E54D4AB70636968972C96 /* Build configuration list for PBXNativeTarget "DebateTVAIDebateArena" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6F40B47D38C2DBEC704CB1D4 /* Release */,
+				5EDB672026D26995909BDF4C /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = E2A17E273D0704705267760F /* Project object */;
+}
