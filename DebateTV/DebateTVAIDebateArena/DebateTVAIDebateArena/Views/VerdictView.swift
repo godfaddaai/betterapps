@@ -64,7 +64,7 @@ struct VerdictView: View {
                 Spacer()
                 Text("FINAL VERDICT")
                     .font(.system(size: 9, weight: .black, design: .monospaced))
-                    .foregroundStyle(BroadcastTheme.stageAmber.opacity(0.6))
+                    .foregroundStyle(BroadcastTheme.primary.opacity(0.8))
                     .tracking(2)
             }
             .padding(.horizontal, 20)
@@ -130,47 +130,57 @@ struct VerdictView: View {
     
     private func scorecard(_ fullResult: DebateResultStruct) -> some View {
         HStack(spacing: 0) {
+            // Agree-green side: YOU — exactly like the content verdict cards
             VStack(spacing: 6) {
                 Text("YOU")
                     .font(.system(size: 9, weight: .black, design: .monospaced))
-                    .foregroundStyle(BroadcastTheme.neonCyan)
+                    .foregroundStyle(BroadcastTheme.success)
                     .tracking(2)
                 Text("\(scoreAnimated ? fullResult.userScore : 0)")
                     .font(.system(size: 52, weight: .black, design: .monospaced))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(BroadcastTheme.success)
                     .contentTransition(.numericText())
+                    .shadow(color: BroadcastTheme.success.opacity(0.4), radius: 12)
             }
             .frame(maxWidth: .infinity)
-            
+
             VStack(spacing: 6) {
                 Text("VS")
                     .font(.system(size: 10, weight: .black, design: .monospaced))
-                    .foregroundStyle(BroadcastTheme.broadcastRed.opacity(0.5))
+                    .foregroundStyle(BroadcastTheme.textSecondary.opacity(0.7))
                 Rectangle()
                     .fill(.white.opacity(0.06))
                     .frame(width: 1, height: 30)
             }
-            
+
+            // Wrong-red side: THEM
             VStack(spacing: 6) {
                 Text(fullResult.opponentName.prefix(8).uppercased())
                     .font(.system(size: 9, weight: .black, design: .monospaced))
-                    .foregroundStyle(BroadcastTheme.stageAmber)
+                    .foregroundStyle(BroadcastTheme.error)
                     .tracking(1)
                     .lineLimit(1)
                 Text("\(scoreAnimated ? fullResult.opponentScore : 0)")
                     .font(.system(size: 52, weight: .black, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.4))
+                    .foregroundStyle(BroadcastTheme.error.opacity(0.85))
                     .contentTransition(.numericText())
+                    .shadow(color: BroadcastTheme.error.opacity(0.3), radius: 12)
             }
             .frame(maxWidth: .infinity)
         }
         .padding(.vertical, 24)
         .padding(.horizontal, 16)
-        .background(.white.opacity(0.02))
+        .background(
+            HStack(spacing: 0) {
+                BroadcastTheme.success.opacity(0.05)
+                BroadcastTheme.error.opacity(0.05)
+            }
+        )
+        .background(BroadcastTheme.surface.opacity(0.45))
         .clipShape(.rect(cornerRadius: 16))
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(.white.opacity(0.04), lineWidth: 0.5)
+                .stroke(BroadcastTheme.primary.opacity(0.14), lineWidth: 0.5)
         )
         .overlay(
             Rectangle().fill(outcomeColor.opacity(0.25)).frame(height: 2),
@@ -207,19 +217,19 @@ struct VerdictView: View {
                     RoundedRectangle(cornerRadius: 2)
                         .fill(
                             LinearGradient(
-                                colors: [BroadcastTheme.neonCyan.opacity(0.6), BroadcastTheme.neonCyan.opacity(0.2)],
+                                colors: [BroadcastTheme.success.opacity(0.8), BroadcastTheme.success.opacity(0.25)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         )
                         .frame(width: geo.size.width * 0.48 * userScore)
-                    
+
                     Spacer(minLength: 0)
-                    
+
                     RoundedRectangle(cornerRadius: 2)
                         .fill(
                             LinearGradient(
-                                colors: [BroadcastTheme.stageAmber.opacity(0.2), BroadcastTheme.stageAmber.opacity(0.6)],
+                                colors: [BroadcastTheme.error.opacity(0.25), BroadcastTheme.error.opacity(0.8)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -234,48 +244,53 @@ struct VerdictView: View {
     private func analysisSection(_ fullResult: DebateResultStruct) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("AI JUDGE ANALYSIS")
-                    .font(.system(size: 9, weight: .black, design: .monospaced))
-                    .foregroundStyle(BroadcastTheme.broadcastRed.opacity(0.8))
-                    .tracking(2)
-                
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 10))
+                        .foregroundStyle(BroadcastTheme.primary)
+                    Text("AI JUDGE ANALYSIS")
+                        .font(.system(size: 9, weight: .black, design: .monospaced))
+                        .foregroundStyle(BroadcastTheme.primary)
+                        .tracking(2)
+                }
+
                 Text(fullResult.reasoning)
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(BroadcastTheme.textSecondary)
                     .lineSpacing(6)
             }
-            
+
             VStack(alignment: .leading, spacing: 12) {
-                argumentBox(title: "YOUR STRONGEST", argument: fullResult.strongestArgument, color: BroadcastTheme.neonCyan)
-                argumentBox(title: "OPPONENT'S STRONGEST", argument: fullResult.opponentStrongestArgument, color: BroadcastTheme.stageAmber)
+                argumentBox(title: "YOUR STRONGEST", argument: fullResult.strongestArgument, color: BroadcastTheme.success)
+                argumentBox(title: "OPPONENT'S STRONGEST", argument: fullResult.opponentStrongestArgument, color: BroadcastTheme.error)
             }
-            
+
             if !fullResult.fallaciesSpotted.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("FALLACIES DETECTED")
                         .font(.system(size: 9, weight: .black, design: .monospaced))
-                        .foregroundStyle(.red.opacity(0.8))
+                        .foregroundStyle(BroadcastTheme.error.opacity(0.8))
                         .tracking(1)
-                    
+
                     ForEach(fullResult.fallaciesSpotted, id: \.self) { fallacy in
                         HStack(spacing: 8) {
                             Circle()
-                                .fill(.red.opacity(0.5))
+                                .fill(BroadcastTheme.error.opacity(0.5))
                                 .frame(width: 3, height: 3)
                             Text(fallacy)
                                 .font(.system(size: 12))
-                                .foregroundStyle(.white.opacity(0.5))
+                                .foregroundStyle(BroadcastTheme.textSecondary.opacity(0.85))
                         }
                     }
                 }
             }
         }
         .padding(16)
-        .background(.white.opacity(0.02))
+        .background(BroadcastTheme.primary.opacity(0.06))
         .clipShape(.rect(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(.white.opacity(0.04), lineWidth: 0.5)
+                .stroke(BroadcastTheme.primary.opacity(0.22), lineWidth: 0.5)
         )
         .padding(.horizontal, 16)
         .padding(.top, 20)
@@ -335,15 +350,10 @@ struct VerdictView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(
-                    LinearGradient(
-                        colors: [BroadcastTheme.broadcastRed.opacity(0.8), BroadcastTheme.broadcastRed.opacity(0.6)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .background(BroadcastTheme.primaryGradient)
                 .foregroundStyle(.white)
                 .clipShape(.rect(cornerRadius: 12))
+                .shadow(color: BroadcastTheme.primary.opacity(0.4), radius: 12, y: 5)
             }
         }
         .padding(.horizontal, 16)

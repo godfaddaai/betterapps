@@ -46,6 +46,8 @@ class DebateService: ObservableObject {
     
     init() {
         setupSubscriptions()
+        // Restore locally persisted history (newest first) so stats + recent matches survive relaunch
+        debateHistory = ProfileStore.loadRecentSessions()
     }
     
     deinit {
@@ -106,7 +108,8 @@ class DebateService: ObservableObject {
     }
     
     func addDebateToHistory(_ session: DebateSession) {
-        debateHistory.append(session)
+        debateHistory.insert(session, at: 0) // newest first
+        ProfileStore.record(session) // persist stats + recents locally (UserDefaults)
     }
     
     func connect() {

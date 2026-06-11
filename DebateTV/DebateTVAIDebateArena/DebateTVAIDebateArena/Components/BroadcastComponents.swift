@@ -30,10 +30,10 @@ struct VignetteOverlay: View {
 struct BroadcastBackground: View {
     var body: some View {
         ZStack {
-            BroadcastTheme.deepBlack.ignoresSafeArea()
+            BroadcastTheme.backgroundGradient.ignoresSafeArea()
             BroadcastTheme.stageLighting.ignoresSafeArea()
-            BroadcastTheme.redSpotlight.ignoresSafeArea()
-            BroadcastTheme.amberSpotlight.ignoresSafeArea()
+            BroadcastTheme.purpleSpotlight.ignoresSafeArea()
+            BroadcastTheme.violetSpotlight.ignoresSafeArea()
         }
     }
 }
@@ -53,15 +53,16 @@ struct AnimatedMeshBackground: View {
                     [0, 1], [0.5, 1], [1, 1]
                 ],
                 colors: [
-                    Color(red: 0.06, green: 0.01, blue: 0.1),
-                    Color(red: 0.18, green: 0.02, blue: 0.04),
-                    Color(red: 0.04, green: 0.01, blue: 0.1),
-                    Color(red: 0.01, green: 0.04, blue: 0.14),
-                    Color(red: 0.12, green: 0.01, blue: 0.06),
-                    Color(red: 0.01, green: 0.06, blue: 0.1),
-                    Color(red: 0.08, green: 0.01, blue: 0.12),
-                    Color(red: 0.01, green: 0.03, blue: 0.08),
-                    Color(red: 0.04, green: 0.01, blue: 0.06)
+                    // Deep-night + DebateTV purple family (#121022 -> #281234 canvas)
+                    Color(red: 0.07, green: 0.06, blue: 0.13),
+                    Color(red: 0.13, green: 0.07, blue: 0.22),
+                    Color(red: 0.08, green: 0.06, blue: 0.15),
+                    Color(red: 0.11, green: 0.05, blue: 0.20),
+                    Color(red: 0.20, green: 0.09, blue: 0.32),
+                    Color(red: 0.10, green: 0.05, blue: 0.18),
+                    Color(red: 0.13, green: 0.06, blue: 0.18),
+                    Color(red: 0.16, green: 0.07, blue: 0.21),
+                    Color(red: 0.11, green: 0.05, blue: 0.15)
                 ]
             )
             .ignoresSafeArea()

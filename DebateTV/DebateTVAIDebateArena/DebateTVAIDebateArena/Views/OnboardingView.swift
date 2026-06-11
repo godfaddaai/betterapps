@@ -8,7 +8,7 @@ struct OnboardingView: View {
     
     var body: some View {
         ZStack {
-            BroadcastTheme.background
+            BroadcastTheme.backgroundGradient
                 .ignoresSafeArea()
             
             VStack {
@@ -78,9 +78,18 @@ struct OnboardingPageView: View {
             // Illustration
             ZStack {
                 Circle()
+                    .fill(BroadcastTheme.primary.opacity(0.18))
+                    .frame(width: 210, height: 210)
+                    .blur(radius: 24)
+
+                Circle()
                     .fill(BroadcastTheme.primary.opacity(0.1))
                     .frame(width: 200, height: 200)
-                
+
+                Circle()
+                    .stroke(BroadcastTheme.primary.opacity(0.25), lineWidth: 1)
+                    .frame(width: 200, height: 200)
+
                 Image(systemName: page.iconName)
                     .font(.system(size: 80, weight: .light))
                     .foregroundColor(BroadcastTheme.primary)
@@ -97,7 +106,7 @@ struct OnboardingPageView: View {
                 
                 Text(page.description)
                     .font(.body)
-                    .foregroundColor(BroadcastTheme.text.opacity(0.7))
+                    .foregroundColor(BroadcastTheme.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(nil)
                     .padding(.horizontal)
@@ -175,8 +184,9 @@ struct NavigationButtons: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: currentPage == 0 ? .infinity : nil)
                 .padding()
-                .background(BroadcastTheme.primary)
+                .background(BroadcastTheme.primaryGradient)
                 .cornerRadius(16)
+                .shadow(color: BroadcastTheme.primary.opacity(0.35), radius: 12, y: 5)
             }
         }
     }

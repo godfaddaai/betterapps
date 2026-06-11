@@ -44,7 +44,10 @@ struct HomeView: View {
                     
                     featuredTopicCard
                         .padding(.top, 24)
-                    
+
+                    squadAccessCard
+                        .padding(.top, 24)
+
                     categoryFilter
                         .padding(.top, 28)
                     
@@ -91,7 +94,7 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(greeting)
                             .font(.system(.caption2))
-                            .foregroundStyle(.white.opacity(0.35))
+                            .foregroundStyle(BroadcastTheme.textSecondary.opacity(0.8))
                         Text(debateService.profile.username)
                             .font(.system(.subheadline, weight: .bold))
                             .foregroundStyle(.white)
@@ -124,67 +127,73 @@ struct HomeView: View {
         } label: {
             ZStack {
                 RoundedRectangle(cornerRadius: 20)
+                    .fill(BroadcastTheme.primaryGradient)
+
+                // Stage sheen across the top of the button
+                RoundedRectangle(cornerRadius: 20)
                     .fill(
                         LinearGradient(
-                            colors: [
-                                BroadcastTheme.broadcastRed.opacity(0.12),
-                                BroadcastTheme.stageAmber.opacity(0.08)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                            colors: [.white.opacity(0.18), .clear],
+                            startPoint: .top,
+                            endPoint: .center
                         )
                     )
-                
+
                 RoundedRectangle(cornerRadius: 20)
                     .stroke(
                         LinearGradient(
                             colors: [
-                                BroadcastTheme.broadcastRed.opacity(0.3),
-                                BroadcastTheme.stageAmber.opacity(0.2)
+                                BroadcastTheme.neonCyan.opacity(0.7),
+                                BroadcastTheme.primary.opacity(0.2)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
                         lineWidth: 1
                     )
-                
+
                 if heroGlow {
                     RoundedRectangle(cornerRadius: 20)
-                        .stroke(BroadcastTheme.broadcastRed.opacity(0.2), lineWidth: 3)
-                        .blur(radius: 8)
+                        .stroke(BroadcastTheme.primary.opacity(0.55), lineWidth: 3)
+                        .blur(radius: 10)
                 }
-                
+
                 HStack(spacing: 0) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("QUICK MATCH")
                             .font(.system(size: 12, weight: .black, design: .monospaced))
-                            .foregroundStyle(BroadcastTheme.broadcastRed)
+                            .foregroundStyle(.white.opacity(0.85))
                             .tracking(2)
-                        
+
                         Text("Start Debating")
                             .font(.system(.title3, weight: .bold))
                             .foregroundStyle(.white)
-                        
+
                         Text("Find an opponent in seconds")
                             .font(.system(.caption))
-                            .foregroundStyle(.white.opacity(0.5))
+                            .foregroundStyle(.white.opacity(0.7))
                     }
-                    
+
                     Spacer()
-                    
+
                     ZStack {
                         Circle()
-                            .fill(BroadcastTheme.broadcastRed.opacity(0.1))
+                            .fill(.white.opacity(0.16))
                             .frame(width: 56, height: 56)
-                        
+
+                        Circle()
+                            .stroke(.white.opacity(0.35), lineWidth: 1)
+                            .frame(width: 56, height: 56)
+
                         Image(systemName: "play.fill")
                             .font(.system(size: 20))
-                            .foregroundStyle(BroadcastTheme.broadcastRed)
+                            .foregroundStyle(.white)
                     }
                 }
                 .padding(24)
             }
             .frame(height: 120)
+            .shadow(color: BroadcastTheme.primary.opacity(heroGlow ? 0.45 : 0.25), radius: heroGlow ? 22 : 14, y: 8)
         }
         .padding(.horizontal, 20)
         .scaleEffect(appeared ? 1 : 0.95)
@@ -196,21 +205,21 @@ struct HomeView: View {
             HStack {
                 Text("FEATURED TOPIC")
                     .font(.system(size: 10, weight: .black, design: .monospaced))
-                    .foregroundStyle(BroadcastTheme.stageAmber.opacity(0.8))
+                    .foregroundStyle(BroadcastTheme.neonCyan.opacity(0.9))
                     .tracking(2)
-                
+
                 Spacer()
-                
+
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(BroadcastTheme.stageAmber)
+                        .fill(BroadcastTheme.secondary)
                         .frame(width: 5, height: 5)
                     Text("HOT")
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .foregroundStyle(BroadcastTheme.stageAmber)
+                        .foregroundStyle(BroadcastTheme.secondary)
                 }
             }
-            
+
             Button {
                 onStartWithTopic(featuredTopic)
             } label: {
@@ -219,27 +228,114 @@ struct HomeView: View {
                         .font(.system(.headline, weight: .semibold))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.leading)
-                    
+
                     HStack(spacing: 12) {
                         Label(featuredTopic.category.rawValue, systemImage: "tag.fill")
                             .font(.system(.caption2))
-                            .foregroundStyle(featuredTopic.category.color)
-                        
+                            .foregroundStyle(BroadcastTheme.neonCyan)
+
                         Label("\(featuredTopic.difficulty) difficulty", systemImage: "gauge.medium")
                             .font(.system(.caption2))
-                            .foregroundStyle(.white.opacity(0.4))
+                            .foregroundStyle(BroadcastTheme.textSecondary.opacity(0.8))
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(16)
-                .background(.white.opacity(0.03))
+                .background(BroadcastTheme.primary.opacity(0.07))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(.white.opacity(0.05), lineWidth: 0.5)
+                        .stroke(BroadcastTheme.primary.opacity(0.22), lineWidth: 0.5)
                 )
             }
         }
+        .padding(.horizontal, 20)
+        .opacity(appeared ? 1 : 0)
+    }
+
+    // MARK: - Squad Access (bring your group chat, they get in free)
+
+    private var squadInviteMessage: String {
+        """
+        debates with live AI judges. I've got squad access on DebateTV so you get in free — pull up: https://debatetv.app/squad
+        """
+    }
+
+    private var squadAccessCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "person.3.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(BroadcastTheme.primary)
+
+                Text("SQUAD ACCESS")
+                    .font(.system(size: 10, weight: .black, design: .monospaced))
+                    .foregroundStyle(BroadcastTheme.primary)
+                    .tracking(2)
+
+                Spacer()
+
+                Text("FREE FOR THEM")
+                    .font(.system(size: 8, weight: .black, design: .monospaced))
+                    .foregroundStyle(BroadcastTheme.success)
+                    .tracking(1)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(BroadcastTheme.success.opacity(0.12))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(BroadcastTheme.success.opacity(0.3), lineWidth: 0.5)
+                    )
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Debate hits different with your people")
+                    .font(.system(.headline, weight: .bold))
+                    .foregroundStyle(.white)
+
+                Text("Bring your group chat — they get in free. Queue up together, argue it out on air.")
+                    .font(.system(.caption))
+                    .foregroundStyle(BroadcastTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            ShareLink(item: squadInviteMessage) {
+                HStack(spacing: 8) {
+                    Image(systemName: "paperplane.fill")
+                        .font(.system(size: 13))
+                    Text("INVITE THE GROUP CHAT")
+                        .font(.system(size: 11, weight: .black, design: .monospaced))
+                        .tracking(1.5)
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .background(BroadcastTheme.primaryGradient)
+                .clipShape(RoundedRectangle(cornerRadius: 11))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 11)
+                        .stroke(BroadcastTheme.neonCyan.opacity(0.4), lineWidth: 0.5)
+                )
+                .shadow(color: BroadcastTheme.primary.opacity(0.35), radius: 10, y: 4)
+            }
+        }
+        .padding(18)
+        .background(
+            LinearGradient(
+                colors: [
+                    BroadcastTheme.primary.opacity(0.10),
+                    BroadcastTheme.secondary.opacity(0.05)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(BroadcastTheme.primary.opacity(0.28), lineWidth: 0.5)
+        )
         .padding(.horizontal, 20)
         .opacity(appeared ? 1 : 0)
     }
@@ -273,24 +369,28 @@ struct HomeView: View {
             Text(category?.rawValue ?? "All")
                 .font(.system(.caption, weight: .semibold))
                 .foregroundStyle(
-                    selectedCategory == category ? .black : .white.opacity(0.7)
+                    selectedCategory == category ? Color.white : BroadcastTheme.textSecondary
                 )
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .background(
                     selectedCategory == category ?
-                    AnyShapeStyle(category?.color ?? Color.white) :
-                    AnyShapeStyle(.white.opacity(0.1))
+                    AnyShapeStyle(BroadcastTheme.primaryGradient) :
+                    AnyShapeStyle(BroadcastTheme.surface.opacity(0.85))
                 )
                 .clipShape(Capsule())
                 .overlay(
                     Capsule()
                         .stroke(
                             selectedCategory == category ?
-                            Color.clear :
-                            Color.white.opacity(0.1),
+                            BroadcastTheme.neonCyan.opacity(0.5) :
+                            BroadcastTheme.primary.opacity(0.18),
                             lineWidth: 0.5
                         )
+                )
+                .shadow(
+                    color: selectedCategory == category ? BroadcastTheme.primary.opacity(0.35) : .clear,
+                    radius: 8, y: 3
                 )
         }
     }
@@ -349,21 +449,25 @@ struct HomeView: View {
                             ForEach(0..<topic.difficulty, id: \.self) { _ in
                                 Image(systemName: "star.fill")
                                     .font(.system(size: 8))
-                                    .foregroundStyle(.yellow.opacity(0.6))
+                                    .foregroundStyle(BroadcastTheme.primary.opacity(0.75))
                             }
                         }
                     }
                 }
-                
+
                 Spacer()
-                
+
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.2))
+                    .foregroundStyle(BroadcastTheme.textSecondary.opacity(0.5))
             }
             .padding(12)
-            .background(.white.opacity(0.03))
+            .background(BroadcastTheme.surface.opacity(0.55))
             .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(BroadcastTheme.primary.opacity(0.10), lineWidth: 0.5)
+            )
         }
     }
     
@@ -460,11 +564,11 @@ struct HomeView: View {
         }
         .padding(14)
         .frame(width: 200)
-        .background(.white.opacity(0.03))
+        .background(BroadcastTheme.surface.opacity(0.55))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(.white.opacity(0.05), lineWidth: 0.5)
+                .stroke(BroadcastTheme.primary.opacity(0.12), lineWidth: 0.5)
         )
     }
     

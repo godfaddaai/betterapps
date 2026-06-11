@@ -2,67 +2,89 @@ import SwiftUI
 
 struct BroadcastTheme {
     // MARK: - Colors
-    
-    /// Primary brand color - Deep blue for trust and professionalism
-    static let primary = Color(red: 0.1, green: 0.3, blue: 0.8)
-    
-    /// Secondary accent color - Vibrant orange for energy and engagement
-    static let secondary = Color(red: 1.0, green: 0.4, blue: 0.1)
-    
-    /// Success color - Green for positive outcomes
-    static let success = Color(red: 0.2, green: 0.7, blue: 0.3)
-    
-    /// Warning color - Yellow for cautions
+
+    /// Primary brand color - DebateTV purple, THE accent across all brand content
+    static let primary = Color(hex: "A855F7")
+
+    /// Deeper purple used as the bottom stop of the primary gradient
+    static let primaryDeep = Color(hex: "7C3AED")
+
+    /// Secondary accent color - Hot fuchsia, the energetic sibling of the brand purple
+    static let secondary = Color(hex: "D946EF")
+
+    /// Success / agree color - Agree-green from the verdict cards
+    static let success = Color(hex: "22C55E")
+
+    /// Warning color - Gold for cautions
     static let warning = Color(red: 1.0, green: 0.8, blue: 0.0)
-    
-    /// Error color - Red for errors and losses
-    static let error = Color(red: 0.9, green: 0.2, blue: 0.2)
-    
-    /// Background color - Dark for TV/streaming aesthetic
-    static let background = Color(red: 0.05, green: 0.05, blue: 0.1)
-    
-    /// Surface color - Slightly lighter than background
-    static let surface = Color(red: 0.1, green: 0.1, blue: 0.15)
-    
-    /// Card background - Even lighter surface for cards
-    static let cardBackground = Color(red: 0.15, green: 0.15, blue: 0.2)
-    
+
+    /// Error / wrong color - Wrong-red from the verdict cards
+    static let error = Color(hex: "EF4444")
+
+    /// Background color - Deep night, top of the brand canvas gradient
+    static let background = Color(hex: "121022")
+
+    /// Deep night bottom stop of the brand canvas gradient
+    static let backgroundDeep = Color(hex: "281234")
+
+    /// Surface color - Slightly lifted night surface
+    static let surface = Color(hex: "1E1833")
+
+    /// Card background - Even lighter elevated surface for cards
+    static let cardBackground = Color(hex: "2A2144")
+
     /// Primary text color
     static let text = Color.white
-    
-    /// Secondary text color
-    static let textSecondary = Color.white.opacity(0.7)
-    
+
+    /// Secondary text color - muted lavender from the brand
+    static let textSecondary = Color(hex: "AAA5C3")
+
     /// Tertiary text color
-    static let textTertiary = Color.white.opacity(0.5)
-    
-    /// Live indicator color
-    static let liveRed = Color(red: 1.0, green: 0.1, blue: 0.1)
-    
+    static let textTertiary = Color(hex: "AAA5C3").opacity(0.6)
+
+    /// Live indicator color - broadcast red, reserved STRICTLY for LIVE / on-air elements
+    static let liveRed = Color(hex: "FF1919")
+
     /// Broadcast red color (alias for liveRed for compatibility)
     static let broadcastRed = liveRed
-    
-    /// Deep black color for maximum contrast
-    static let deepBlack = Color.black
-    
+
+    /// Deepest night color for maximum contrast (never pure #000)
+    static let deepBlack = Color(hex: "0C0A18")
+
     /// Stage amber color for warnings/attention
     static let stageAmber = Color(red: 1.0, green: 0.75, blue: 0.0)
-    
-    /// Stage lighting color for effects
+
+    /// Stage lighting color for effects - faint purple wash from the rig
     static let stageLighting = LinearGradient(
-        gradient: Gradient(colors: [Color.white.opacity(0.1), Color.white.opacity(0.0)]),
+        gradient: Gradient(colors: [Color(hex: "A855F7").opacity(0.09), Color(hex: "A855F7").opacity(0.0)]),
         startPoint: .top,
         endPoint: .bottom
     )
-    
-    /// Red spotlight effect
+
+    /// Red spotlight effect (LIVE / on-air moments only)
     static let redSpotlight = RadialGradient(
         gradient: Gradient(colors: [liveRed.opacity(0.3), liveRed.opacity(0.0)]),
         center: .center,
         startRadius: 5,
         endRadius: 100
     )
-    
+
+    /// Purple spotlight effect - the brand stage light
+    static let purpleSpotlight = RadialGradient(
+        gradient: Gradient(colors: [primary.opacity(0.28), primary.opacity(0.0)]),
+        center: .center,
+        startRadius: 5,
+        endRadius: 100
+    )
+
+    /// Violet spotlight effect - secondary stage light
+    static let violetSpotlight = RadialGradient(
+        gradient: Gradient(colors: [secondary.opacity(0.16), secondary.opacity(0.0)]),
+        center: .center,
+        startRadius: 5,
+        endRadius: 100
+    )
+
     /// Amber spotlight effect
     static let amberSpotlight = RadialGradient(
         gradient: Gradient(colors: [stageAmber.opacity(0.3), stageAmber.opacity(0.0)]),
@@ -70,9 +92,9 @@ struct BroadcastTheme {
         startRadius: 5,
         endRadius: 100
     )
-    
-    /// Neon cyan color for highlights
-    static let neonCyan = Color(red: 0.0, green: 1.0, blue: 1.0)
+
+    /// Neon highlight color (legacy name - now the brand's electric violet glow)
+    static let neonCyan = Color(hex: "C084FC")
     
     /// Get color based on debate outcome
     static func outcomeColor(_ result: DebateResult) -> Color {
@@ -86,19 +108,20 @@ struct BroadcastTheme {
     // MARK: - Gradients
     
     static let primaryGradient = LinearGradient(
-        gradient: Gradient(colors: [primary, primary.opacity(0.8)]),
+        gradient: Gradient(colors: [primary, primaryDeep]),
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
-    
+
     static let secondaryGradient = LinearGradient(
         gradient: Gradient(colors: [secondary, secondary.opacity(0.8)]),
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
-    
+
+    /// The brand canvas: deep-night #121022 -> #281234, top to bottom. Never pure black.
     static let backgroundGradient = LinearGradient(
-        gradient: Gradient(colors: [background, surface]),
+        gradient: Gradient(colors: [background, backgroundDeep]),
         startPoint: .top,
         endPoint: .bottom
     )
