@@ -3,164 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BetterApps LLC</title>
-    <meta name="description" content="Software studio shipping production apps across consumer, enterprise, and social-impact verticals.">
+    <title>BetterApps LLC — Catholic, American, Founder-led</title>
+    <meta name="description" content="A Catholic and American software studio building useful products, agent systems, and distribution infrastructure.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
     tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
-        }
-      }
+      theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } }
     }
     </script>
 </head>
 <body class="bg-white text-neutral-900 font-sans antialiased">
 
-    <!-- Nav -->
     <nav class="border-b border-neutral-100">
-        <div class="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
-            <span class="text-sm font-semibold tracking-tight">BetterApps LLC</span>
-            <div class="flex items-center gap-6 text-sm text-neutral-400">
-                <a href="#apps" class="hover:text-neutral-900 transition">Apps</a>
-                <a href="thesis.html" class="hover:text-neutral-900 transition">AI Thesis</a>
+        <div class="max-w-3xl mx-auto px-5 sm:px-6 min-h-14 py-3 flex items-center justify-between gap-5">
+            <a href="/" class="text-sm font-semibold tracking-tight whitespace-nowrap">BetterApps LLC</a>
+            <div class="flex items-center justify-end gap-4 sm:gap-6 text-xs sm:text-sm text-neutral-400">
+                <a href="#products" class="hover:text-neutral-900 transition">Products</a>
+                <a href="#systems" class="hover:text-neutral-900 transition">Systems</a>
                 <a href="portfolio/" class="hover:text-neutral-900 transition">Portfolio</a>
-                <a href="https://linkedin.com/in/reaganstock" target="_blank" class="hover:text-neutral-900 transition">LinkedIn</a>
+                <a href="https://linkedin.com/in/reaganstock" target="_blank" rel="noopener noreferrer" class="hidden sm:inline hover:text-neutral-900 transition">LinkedIn</a>
             </div>
         </div>
     </nav>
 
-    <main class="max-w-3xl mx-auto px-6">
-
-        <!-- Hero -->
+    <main class="max-w-3xl mx-auto px-5 sm:px-6">
         <section class="py-20 md:py-28">
-            <h1 class="text-3xl md:text-4xl font-bold tracking-tight leading-tight mb-4">Building apps that contribute to humankind.</h1>
-            <p class="text-neutral-500 text-lg leading-relaxed max-w-xl">Software studio shipping production apps across consumer, enterprise, and social-impact verticals. Founded by Reagan Stock at Georgetown University.</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400 mb-5">Catholic · American · Founder-led</p>
+            <h1 class="text-3xl md:text-4xl font-bold tracking-tight leading-tight mb-4">Building software that earns its place in people's lives.</h1>
+            <p class="text-neutral-500 text-lg leading-relaxed max-w-2xl">Better Apps is an independent studio shipping consumer products, agent systems, and distribution infrastructure. Founded by Reagan Stock at Georgetown University.</p>
         </section>
 
-        <!-- Lead Magnet -->
-        <section class="border border-neutral-200 rounded-2xl p-8 md:p-10 mb-20 bg-neutral-50">
+        <section class="border border-neutral-200 rounded-2xl p-7 md:p-9 mb-20 bg-neutral-50">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                 <div>
-                    <h2 class="text-lg font-semibold mb-1">Reagan's "Pragmatic" AI Thesis</h2>
-                    <p class="text-neutral-500 text-sm">How a Georgetown student shipped 8 production apps using AI — the frameworks, tools, and mindset.</p>
+                    <h2 class="text-lg font-semibold mb-1">Reagan's “Pragmatic” AI Thesis</h2>
+                    <p class="text-neutral-500 text-sm leading-relaxed">How a student-builder ships production software with AI—the frameworks, tools, and mindset.</p>
                 </div>
-                <a href="thesis.html" class="bg-neutral-900 text-white px-6 py-3 rounded-lg text-sm font-medium hover:bg-neutral-700 transition whitespace-nowrap text-center">Get it free →</a>
+                <a href="thesis.html" class="bg-neutral-900 text-white px-6 py-3 rounded-lg text-sm font-medium hover:bg-neutral-700 transition whitespace-nowrap text-center">Read it free →</a>
             </div>
         </section>
 
-        <!-- Apps -->
-        <section id="apps" class="pb-20">
-            <h2 class="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-8">The Apps</h2>
-            <div class="space-y-6">
-                <a href="https://wizzmo.app" target="_blank" class="block group">
-                    <div class="flex items-baseline justify-between">
-                        <h3 class="text-lg font-semibold group-hover:underline">Wizzmo</h3>
-                        <span class="text-sm text-neutral-400">wizzmo.app</span>
+        <section id="products" class="pb-20 scroll-mt-8">
+            <div class="mb-8">
+                <h2 class="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-2">Public products</h2>
+                <p class="text-sm text-neutral-500">Each product keeps its direct domain and a Netlify deployment address, so the work remains findable if DNS goes down.</p>
+            </div>
+            <div class="divide-y divide-neutral-100 border-y border-neutral-100">
+                <article class="py-6">
+                    <h3 class="text-lg font-semibold">Wizzmo</h3>
+                    <p class="text-neutral-500 text-sm mt-1">College matchmaking and mentorship, built around real student communities.</p>
+                    <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium">
+                        <a href="https://wizzmo.app" target="_blank" rel="noopener noreferrer" class="hover:underline">wizzmo.app ↗</a>
+                        <a href="https://capable-kashata-3e7486.netlify.app" target="_blank" rel="noopener noreferrer" class="text-neutral-400 hover:text-neutral-900 transition">Netlify backup ↗</a>
                     </div>
-                    <p class="text-neutral-500 text-sm mt-1">College matchmaking & mentorship. 400+ signups at Georgetown.</p>
-                </a>
-                <div class="border-t border-neutral-100"></div>
-
-                <a href="https://bridgeup.co" target="_blank" class="block group">
-                    <div class="flex items-baseline justify-between">
-                        <h3 class="text-lg font-semibold group-hover:underline">BridgeUp</h3>
-                        <span class="text-sm text-neutral-400">bridgeup.co</span>
-                    </div>
+                </article>
+                <article class="py-6">
+                    <h3 class="text-lg font-semibold">BridgeUp</h3>
                     <p class="text-neutral-500 text-sm mt-1">College guidance from verified student mentors.</p>
-                </a>
-                <div class="border-t border-neutral-100"></div>
-
-                <a href="https://wasteroute.app" target="_blank" class="block group">
-                    <div class="flex items-baseline justify-between">
-                        <h3 class="text-lg font-semibold group-hover:underline">WasteRoute</h3>
-                        <span class="text-sm text-neutral-400">wasteroute.app</span>
+                    <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium">
+                        <a href="https://bridgeup.co" target="_blank" rel="noopener noreferrer" class="hover:underline">bridgeup.co ↗</a>
+                        <a href="https://bridgeup.netlify.app" target="_blank" rel="noopener noreferrer" class="text-neutral-400 hover:text-neutral-900 transition">Netlify backup ↗</a>
                     </div>
-                    <p class="text-neutral-500 text-sm mt-1">B2B route optimization for waste haulers.</p>
-                </a>
-                <div class="border-t border-neutral-100"></div>
-
-                <a href="https://debatetv.app" target="_blank" class="block group">
-                    <div class="flex items-baseline justify-between">
-                        <h3 class="text-lg font-semibold group-hover:underline">DebateTV</h3>
-                        <span class="text-sm text-neutral-400">debatetv.app</span>
+                </article>
+                <article class="py-6">
+                    <h3 class="text-lg font-semibold">WasteRoute</h3>
+                    <p class="text-neutral-500 text-sm mt-1">Route optimization and field operations for waste haulers.</p>
+                    <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium">
+                        <a href="https://wasteroute.app" target="_blank" rel="noopener noreferrer" class="hover:underline">wasteroute.app ↗</a>
+                        <a href="https://wasteroute.netlify.app" target="_blank" rel="noopener noreferrer" class="text-neutral-400 hover:text-neutral-900 transition">Netlify backup ↗</a>
                     </div>
-                    <p class="text-neutral-500 text-sm mt-1">Real-time video debates with AI scoring.</p>
-                </a>
-                <div class="border-t border-neutral-100"></div>
-
-                <a href="https://fitformai.com" target="_blank" class="block group">
-                    <div class="flex items-baseline justify-between">
-                        <h3 class="text-lg font-semibold group-hover:underline">FitFormAI</h3>
-                        <span class="text-sm text-neutral-400">fitformai.com</span>
+                </article>
+                <article class="py-6">
+                    <h3 class="text-lg font-semibold">DebateTV</h3>
+                    <p class="text-neutral-500 text-sm mt-1">Real-time video debates, structured participation, and AI-assisted judging.</p>
+                    <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium">
+                        <a href="https://debatetv.app" target="_blank" rel="noopener noreferrer" class="hover:underline">debatetv.app ↗</a>
+                        <a href="https://debatetv.netlify.app" target="_blank" rel="noopener noreferrer" class="text-neutral-400 hover:text-neutral-900 transition">Netlify backup ↗</a>
                     </div>
-                    <p class="text-neutral-500 text-sm mt-1">AI fitness coaching & video form analysis.</p>
-                </a>
-                <div class="border-t border-neutral-100"></div>
-
-                <a href="https://detach.app" target="_blank" class="block group">
-                    <div class="flex items-baseline justify-between">
-                        <h3 class="text-lg font-semibold group-hover:underline">Detach</h3>
-                        <span class="text-sm text-neutral-400">detach.app</span>
+                </article>
+                <article class="py-6">
+                    <h3 class="text-lg font-semibold">FitFormAI</h3>
+                    <p class="text-neutral-500 text-sm mt-1">AI fitness coaching and video-based form analysis.</p>
+                    <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium">
+                        <a href="https://fitformai.com" target="_blank" rel="noopener noreferrer" class="hover:underline">fitformai.com ↗</a>
+                        <a href="https://spectacular-faloodeh-75801e.netlify.app" target="_blank" rel="noopener noreferrer" class="text-neutral-400 hover:text-neutral-900 transition">Netlify backup ↗</a>
                     </div>
-                    <p class="text-neutral-500 text-sm mt-1">Digital wellness & offline content from 7 platforms.</p>
-                </a>
-                <div class="border-t border-neutral-100"></div>
-
-                <a href="https://lifely.dev" target="_blank" class="block group">
-                    <div class="flex items-baseline justify-between">
-                        <h3 class="text-lg font-semibold group-hover:underline">Lifely</h3>
-                        <span class="text-sm text-neutral-400">lifely.dev</span>
+                </article>
+                <article class="py-6">
+                    <h3 class="text-lg font-semibold">Detach</h3>
+                    <p class="text-neutral-500 text-sm mt-1">Intentional media consumption and offline content from seven platforms.</p>
+                    <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium">
+                        <a href="https://detach.media" target="_blank" rel="noopener noreferrer" class="hover:underline">detach.media ↗</a>
+                        <a href="https://detachmedia.netlify.app" target="_blank" rel="noopener noreferrer" class="text-neutral-400 hover:text-neutral-900 transition">Netlify backup ↗</a>
                     </div>
-                    <p class="text-neutral-500 text-sm mt-1">Life management, todos, goals & AI calendar.</p>
-                </a>
-                <div class="border-t border-neutral-100"></div>
-
-                <a href="https://readingstinks.com" target="_blank" class="block group">
-                    <div class="flex items-baseline justify-between">
-                        <h3 class="text-lg font-semibold group-hover:underline">ReadingStinks</h3>
-                        <span class="text-sm text-neutral-400">readingstinks.com</span>
+                </article>
+                <article class="py-6">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2">
+                        <h3 class="text-lg font-semibold">Lifely</h3>
+                        <span class="text-[11px] font-medium uppercase tracking-wider text-amber-700">Domain recovery in progress</span>
                     </div>
-                    <p class="text-neutral-500 text-sm mt-1">PDF to audiobook. On the App Store.</p>
-                </a>
+                    <p class="text-neutral-500 text-sm mt-1">Life management, goals, routines, notes, and an AI-assisted calendar.</p>
+                    <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium">
+                        <a href="https://lifely-landing-page.netlify.app" target="_blank" rel="noopener noreferrer" class="hover:underline">Live landing page ↗</a>
+                        <a href="https://lifelydev.netlify.app" target="_blank" rel="noopener noreferrer" class="text-neutral-400 hover:text-neutral-900 transition">Open the app ↗</a>
+                    </div>
+                </article>
+                <article class="py-6">
+                    <h3 class="text-lg font-semibold">ReadingStinks</h3>
+                    <p class="text-neutral-500 text-sm mt-1">PDF-to-audiobook conversion with summaries and high-quality speech.</p>
+                    <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium">
+                        <a href="https://readingstinks.com" target="_blank" rel="noopener noreferrer" class="hover:underline">readingstinks.com ↗</a>
+                        <a href="https://readingstinks.netlify.app" target="_blank" rel="noopener noreferrer" class="text-neutral-400 hover:text-neutral-900 transition">Netlify backup ↗</a>
+                    </div>
+                </article>
             </div>
         </section>
 
-        <!-- Interactive Portfolio Link -->
-        <section class="pb-20">
-            <a href="portfolio/" class="block border border-neutral-200 rounded-2xl p-8 hover:border-neutral-400 transition group">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h2 class="text-lg font-semibold mb-1 group-hover:underline">Interactive Portfolio →</h2>
-                        <p class="text-neutral-500 text-sm">Explore every app in a macOS-style desktop environment.</p>
+        <section id="systems" class="pb-20 scroll-mt-8">
+            <div class="mb-8">
+                <h2 class="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-2">Internal systems</h2>
+                <p class="text-sm text-neutral-500">Standalone infrastructure built inside Better Apps—even when the working code lives in another product's repository.</p>
+            </div>
+            <div class="grid gap-4">
+                <article class="border border-neutral-200 rounded-2xl p-6">
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                        <h3 class="text-lg font-semibold">Foundry</h3>
+                        <span class="text-[11px] font-medium uppercase tracking-wider text-neutral-400">Private alpha · verification</span>
                     </div>
-                    <span class="text-3xl">💻</span>
+                    <p class="text-neutral-500 text-sm leading-relaxed">An evidence-gated distribution system for owner-controlled phone fleets across Instagram, TikTok, and YouTube. Human approval, exact account binding, and terminal receipts stay in the loop.</p>
+                </article>
+                <article class="border border-neutral-200 rounded-2xl p-6">
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                        <h3 class="text-lg font-semibold">mpai</h3>
+                        <span class="text-[11px] font-medium uppercase tracking-wider text-neutral-400">Public alpha</span>
+                    </div>
+                    <p class="text-neutral-500 text-sm leading-relaxed">A terminal-native collaboration layer that lets trusted teammates join existing Codex and Claude Code sessions without moving the team into another IDE.</p>
+                    <a href="https://github.com/godfaddaai/multiplayer-ai" target="_blank" rel="noopener noreferrer" class="inline-block mt-4 text-xs font-medium hover:underline">View mpai on GitHub ↗</a>
+                </article>
+                <article class="border border-neutral-200 rounded-2xl p-6">
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                        <h3 class="text-lg font-semibold">iMessage Agents</h3>
+                        <span class="text-[11px] font-medium uppercase tracking-wider text-neutral-400">Internal platform</span>
+                    </div>
+                    <p class="text-neutral-500 text-sm leading-relaxed">Reusable, consent-bound agent infrastructure for onboarding, memory, planning, and real-world actions through iMessage. It is a standalone Better Apps system; its current implementation lives inside the Wizzmo repository.</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="pb-20">
+            <a href="portfolio/" class="block border border-neutral-200 rounded-2xl p-7 hover:border-neutral-400 transition group">
+                <div class="flex items-center justify-between gap-5">
+                    <div>
+                        <h2 class="text-lg font-semibold mb-1 group-hover:underline">Full portfolio →</h2>
+                        <p class="text-neutral-500 text-sm">Product details, technical notes, and durable deployment links.</p>
+                    </div>
+                    <span class="text-xs font-semibold uppercase tracking-widest text-neutral-300">Index</span>
                 </div>
             </a>
         </section>
 
-        <!-- About -->
         <section class="pb-20 border-t border-neutral-100 pt-16">
             <h2 class="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-6">About</h2>
             <div class="text-neutral-500 space-y-4 leading-relaxed">
-                <p>I dropped out of high school my junior year to start a marketing agency. Fielded hundreds of cold calls, built lead-gen systems with Python, and closed $20K+ in revenue consulting for companies like Skool.com. I was 17.</p>
-                <p>Now I'm at Georgetown studying finance and management — and running Better Apps, LLC on the side. Every product in the portfolio went from idea to production with paying users or active pilots.</p>
+                <p>I'm a Catholic and an American. I dropped out of high school during my junior year to start a marketing agency, built lead-generation systems with Python, and closed more than $20,000 in consulting revenue at 17.</p>
+                <p>Now I study finance and management at Georgetown and build Better Apps. The aim is simple: make useful software, tell the truth about what is and is not working, and keep shipping.</p>
             </div>
-            <div class="mt-6 flex gap-4 text-sm">
-                <a href="https://linkedin.com/in/reaganstock" target="_blank" class="text-neutral-900 font-medium hover:underline">LinkedIn</a>
-                <a href="mailto:reagan@betterappsllchq.com" class="text-neutral-400 hover:text-neutral-900 transition">reagan@betterappsllchq.com</a>
+            <div class="mt-6 flex flex-wrap gap-4 text-sm">
+                <a href="https://linkedin.com/in/reaganstock" target="_blank" rel="noopener noreferrer" class="text-neutral-900 font-medium hover:underline">LinkedIn</a>
+                <a href="mailto:reagan@betterappshq.com" class="text-neutral-400 hover:text-neutral-900 transition">reagan@betterappshq.com</a>
             </div>
         </section>
-
     </main>
 
-    <!-- Footer -->
-    <footer class="border-t border-neutral-100 py-8 text-center text-sm text-neutral-400">
+    <footer class="border-t border-neutral-100 py-8 text-center text-sm text-neutral-400 px-5">
         <p>© 2026 BetterApps LLC</p>
-        <p class="mt-1"><a href="privacy.html" class="hover:text-neutral-900 transition">Privacy</a> · <a href="terms.html" class="hover:text-neutral-900 transition">Terms</a></p>
+        <p class="mt-1"><a href="https://betterappsllc.netlify.app" class="hover:text-neutral-900 transition">Permanent Netlify address</a> · <a href="privacy.html" class="hover:text-neutral-900 transition">Privacy</a> · <a href="terms.html" class="hover:text-neutral-900 transition">Terms</a></p>
     </footer>
-
 </body>
 </html>

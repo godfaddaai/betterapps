@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portfolio — BetterApps LLC</title>
-    <meta name="description" content="8 production apps across consumer, enterprise, and social-impact verticals.">
+    <meta name="description" content="Public products and internal systems built by Better Apps, a Catholic and American software studio.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -16,124 +16,156 @@
 <body class="bg-white text-neutral-900 font-sans antialiased">
 
     <nav class="border-b border-neutral-100 sticky top-0 bg-white/90 backdrop-blur-sm z-50">
-        <div class="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div class="max-w-5xl mx-auto px-5 sm:px-6 min-h-14 py-3 flex items-center justify-between gap-5">
             <a href="/" class="text-sm font-semibold tracking-tight hover:opacity-70 transition">BetterApps LLC</a>
-            <div class="flex items-center gap-6 text-sm text-neutral-400">
+            <div class="flex items-center gap-4 sm:gap-6 text-xs sm:text-sm text-neutral-400">
+                <a href="/#systems" class="hover:text-neutral-900 transition">Systems</a>
                 <a href="/thesis.html" class="hover:text-neutral-900 transition">AI Thesis</a>
-                <a href="https://linkedin.com/in/reaganstock" target="_blank" class="hover:text-neutral-900 transition">LinkedIn</a>
+                <a href="https://linkedin.com/in/reaganstock" target="_blank" rel="noopener noreferrer" class="hover:text-neutral-900 transition">LinkedIn</a>
             </div>
         </div>
     </nav>
 
-    <section class="max-w-5xl mx-auto px-6 pt-20 pb-16">
-        <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight mb-4">The Portfolio</h1>
-        <p class="text-neutral-500 text-lg max-w-xl leading-relaxed">8 apps. All shipped. All in production. Every product went from zero to real users.</p>
+    <section class="max-w-5xl mx-auto px-5 sm:px-6 pt-20 pb-14">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400 mb-5">Catholic · American · Founder-led</p>
+        <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight mb-4">The work</h1>
+        <p class="text-neutral-500 text-lg max-w-2xl leading-relaxed">Public products, internal systems, and the durable links that keep each deployment findable when a custom domain is unavailable.</p>
     </section>
 
-    <section class="max-w-5xl mx-auto px-6 pb-24">
+    <section class="max-w-5xl mx-auto px-5 sm:px-6 pb-24">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5" id="grid"></div>
     </section>
 
     <section class="border-t border-neutral-100 py-16">
-        <div class="max-w-5xl mx-auto px-6 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+        <div class="max-w-5xl mx-auto px-5 sm:px-6 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
-                <h2 class="text-xl font-bold mb-1">Want to know how these were built?</h2>
-                <p class="text-neutral-500 text-sm">Read the thesis on shipping 8 apps in 12 months with AI.</p>
+                <h2 class="text-xl font-bold mb-1">How does a small studio ship this much?</h2>
+                <p class="text-neutral-500 text-sm">Read the pragmatic thesis on building production software with AI.</p>
             </div>
-            <a href="/thesis.html" class="bg-neutral-900 text-white px-6 py-3 rounded-lg text-sm font-medium hover:bg-neutral-700 transition whitespace-nowrap text-center">Get the AI Thesis →</a>
+            <a href="/thesis.html" class="bg-neutral-900 text-white px-6 py-3 rounded-lg text-sm font-medium hover:bg-neutral-700 transition whitespace-nowrap text-center">Read the AI Thesis →</a>
         </div>
     </section>
 
-    <footer class="border-t border-neutral-100 py-8 text-center text-sm text-neutral-400">
-        © 2026 BetterApps LLC · <a href="/" class="hover:text-neutral-900 transition">Home</a> · <a href="https://linkedin.com/in/reaganstock" target="_blank" class="hover:text-neutral-900 transition">LinkedIn</a>
+    <footer class="border-t border-neutral-100 py-8 text-center text-sm text-neutral-400 px-5">
+        © 2026 BetterApps LLC · <a href="/" class="hover:text-neutral-900 transition">Home</a> · <a href="https://betterappsllc.netlify.app" class="hover:text-neutral-900 transition">Netlify address</a>
     </footer>
 
     <script>
-    const apps = [
+    const projects = [
         {
-            name: 'Wizzmo', url: 'https://wizzmo.app',
-            tagline: 'College matchmaking & mentorship',
-            desc: 'Q&A platform where guys anonymously get dating and life advice from verified college women mentors. 400+ signups and 95% engagement at Georgetown launch. $9.99/month subscription.',
-            tags: ['Next.js 15', 'React 19', 'Supabase', 'Stripe'],
-            stat: '400+ signups', icon: 'images/apps/wizzmo.png'
+            name: 'Wizzmo', url: 'https://wizzmo.app', primaryLabel: 'wizzmo.app',
+            fallback: 'https://capable-kashata-3e7486.netlify.app',
+            tagline: 'College matchmaking and mentorship',
+            desc: 'Anonymous questions, verified student mentors, and campus-specific guidance built around real college communities.',
+            tags: ['Next.js', 'React', 'Supabase', 'Stripe'],
+            status: 'Public product', icon: 'images/apps/wizzmo.png'
         },
         {
-            name: 'BridgeUp', url: 'https://bridgeup.co',
+            name: 'BridgeUp', url: 'https://bridgeup.co', primaryLabel: 'bridgeup.co',
+            fallback: 'https://bridgeup.netlify.app',
             tagline: 'College guidance platform',
-            desc: 'Connecting students with verified current student mentors for personalized advice on applications, campus life, career guidance, and financial aid.',
-            tags: ['Next.js', 'React', 'Supabase', 'Tailwind CSS'],
-            stat: 'Multi-campus', icon: 'images/apps/bridgeup.svg'
+            desc: 'Connects prospective students with verified current students for grounded advice on applications, campus life, careers, and aid.',
+            tags: ['Next.js', 'React', 'Supabase'],
+            status: 'Public product', icon: 'images/apps/bridgeup.svg'
         },
         {
-            name: 'WasteRoute', url: 'https://wasteroute.app',
-            tagline: 'B2B route optimization for waste haulers',
-            desc: 'Route optimization SaaS with geofenced driver notifications, team management dashboards, real-time GPS tracking, and offline route continuation.',
-            tags: ['React Native', 'Expo', 'Maps', 'Geofencing'],
-            stat: 'B2B SaaS', icon: 'images/apps/wasteroute.png'
+            name: 'WasteRoute', url: 'https://wasteroute.app', primaryLabel: 'wasteroute.app',
+            fallback: 'https://wasteroute.netlify.app',
+            tagline: 'Field operations for waste haulers',
+            desc: 'Route optimization, geofenced notifications, team management, GPS tracking, and offline route continuation.',
+            tags: ['React Native', 'Expo', 'Maps'],
+            status: 'B2B product', icon: 'images/apps/wasteroute.png'
         },
         {
-            name: 'DebateTV', url: 'https://debatetv.app',
-            tagline: 'Real-time video debates with AI scoring',
-            desc: 'Live video debate platform integrating LiveKit for low-latency streaming with AI-powered scoring algorithms and broadcast-quality production interface.',
-            tags: ['React Native', 'LiveKit', 'AI', 'Supabase'],
-            stat: 'Live streaming', icon: 'images/apps/debatetv.png'
+            name: 'DebateTV', url: 'https://debatetv.app', primaryLabel: 'debatetv.app',
+            fallback: 'https://debatetv.netlify.app',
+            tagline: 'Real-time video debate platform',
+            desc: 'Low-latency debate rooms, structured participation, and AI-assisted judging for live public discourse.',
+            tags: ['React Native', 'LiveKit', 'AI'],
+            status: 'Public alpha', icon: 'images/apps/debatetv.png'
         },
         {
-            name: 'FitFormAI', url: 'https://fitformai.com',
-            tagline: 'AI fitness coaching & form analysis',
-            desc: 'Professional fitness app with AI workout generation, video form analysis using Google Gemini Vision, and 15,000+ AI-generated exercises. 9 Supabase Edge Functions.',
-            tags: ['React Native', 'Expo', 'Gemini', 'RevenueCat'],
-            stat: '15K+ exercises', icon: 'images/apps/fitformai.png'
+            name: 'FitFormAI', url: 'https://fitformai.com', primaryLabel: 'fitformai.com',
+            fallback: 'https://spectacular-faloodeh-75801e.netlify.app',
+            tagline: 'AI fitness coaching and form analysis',
+            desc: 'Workout generation, video-based form analysis, and a large exercise library backed by server-side AI workflows.',
+            tags: ['React Native', 'Expo', 'Gemini'],
+            status: 'Public product', icon: 'images/apps/fitformai.png'
         },
         {
-            name: 'Detach', url: 'https://detach.app',
-            tagline: 'Digital wellness & offline content',
-            desc: 'Intentional consumption app for downloading content from 7 platforms — YouTube, Instagram, TikTok, Facebook, Twitter, LinkedIn, Pinterest — for offline viewing.',
-            tags: ['React Native', 'Expo', 'Node.js', 'yt-dlp'],
-            stat: '7 platforms', icon: 'images/apps/detach.png'
+            name: 'Detach', url: 'https://detach.media', primaryLabel: 'detach.media',
+            fallback: 'https://detachmedia.netlify.app',
+            tagline: 'Intentional media consumption',
+            desc: 'Downloads content from seven social platforms for intentional, offline viewing instead of endless feeds.',
+            tags: ['React Native', 'Expo', 'Node.js'],
+            status: 'Public product', icon: 'images/apps/detach.png'
         },
         {
-            name: 'Lifely', url: 'https://lifely.dev',
-            tagline: 'Life management & productivity',
-            desc: 'Comprehensive life organization with todos, events, notes, goals, and routines. AI calendar integration with Google Gemini and OpenAI. 100+ AppSumo redemption codes.',
-            tags: ['React', 'Tailwind CSS', 'Supabase', 'Gemini'],
-            stat: 'AppSumo launch', icon: 'images/apps/lifely.svg'
+            name: 'Lifely', url: 'https://lifely-landing-page.netlify.app', primaryLabel: 'Landing page',
+            fallback: 'https://lifelydev.netlify.app', fallbackLabel: 'Open app',
+            tagline: 'Life management and productivity',
+            desc: 'Todos, events, notes, goals, routines, and an AI-assisted calendar in one personal operating system.',
+            tags: ['React', 'Supabase', 'Gemini'],
+            status: 'Domain recovery', icon: 'images/apps/lifely.svg'
         },
         {
-            name: 'ReadingStinks', url: 'https://readingstinks.com',
-            tagline: 'PDF to audiobook converter',
-            desc: 'Transform any PDF into an intelligent audiobook with AI-powered summaries and high-quality TTS. Multi-provider AI system optimized from $2-4 to $0.20 per PDF. Available on the App Store.',
+            name: 'ReadingStinks', url: 'https://readingstinks.com', primaryLabel: 'readingstinks.com',
+            fallback: 'https://readingstinks.netlify.app',
+            tagline: 'PDF-to-audiobook conversion',
+            desc: 'Turns PDFs into useful audio with summaries and high-quality speech through a cost-conscious multi-provider pipeline.',
             tags: ['React', 'Node.js', 'Gemini', 'Deepgram'],
-            stat: 'App Store', icon: 'images/apps/readingstinks.png'
+            status: 'Public product', icon: 'images/apps/readingstinks.png'
+        },
+        {
+            name: 'Foundry',
+            tagline: 'Evidence-gated distribution infrastructure',
+            desc: 'Owner-controlled phone-fleet automation across Instagram, TikTok, and YouTube with account binding, human approval, and terminal receipts.',
+            tags: ['iOS automation', 'Multi-device', 'Evidence ledger'],
+            status: 'Private alpha · verification', mark: 'F'
+        },
+        {
+            name: 'mpai', url: 'https://github.com/godfaddaai/multiplayer-ai', primaryLabel: 'GitHub',
+            tagline: 'Make existing AI coding sessions multiplayer',
+            desc: 'Lets trusted teammates join existing Codex and Claude Code sessions from the terminal over their Tailscale network.',
+            tags: ['Terminal', 'Tailscale', 'Codex', 'Claude Code'],
+            status: 'Public alpha', mark: 'm'
+        },
+        {
+            name: 'iMessage Agents',
+            tagline: 'Reusable agent infrastructure',
+            desc: 'Consent-bound onboarding, memory, planning, and real-world actions through iMessage. This is a standalone Better Apps system whose current implementation lives inside the Wizzmo repository.',
+            tags: ['Agent runtime', 'iMessage', 'Consent', 'Human approval'],
+            status: 'Internal platform', mark: 'iM'
         }
     ];
 
     const grid = document.getElementById('grid');
-    apps.forEach(app => {
-        const el = document.createElement('a');
-        el.href = app.url;
-        el.target = '_blank';
-        el.rel = 'noopener';
-        el.className = 'group block border border-neutral-200 rounded-2xl p-6 hover:border-neutral-400 hover:shadow-lg transition-all duration-200';
+    projects.forEach(project => {
+        const el = document.createElement('article');
+        el.className = 'border border-neutral-200 rounded-2xl p-6 hover:border-neutral-400 hover:shadow-lg transition-all duration-200';
+        const icon = project.icon
+            ? `<img src="${project.icon}" alt="${project.name}" class="w-14 h-14 rounded-xl object-cover flex-shrink-0 bg-neutral-100" onerror="this.style.display='none'">`
+            : `<div class="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 bg-neutral-900 text-white text-sm font-bold tracking-tight">${project.mark}</div>`;
+        const links = project.url
+            ? `<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <a href="${project.url}" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold hover:underline">${project.primaryLabel || 'View project'} ↗</a>
+                    ${project.fallback ? `<a href="${project.fallback}" target="_blank" rel="noopener noreferrer" class="text-xs font-medium text-neutral-400 hover:text-neutral-900 transition">${project.fallbackLabel || 'Netlify backup'} ↗</a>` : ''}
+               </div>`
+            : '<span class="text-xs font-medium text-neutral-400">Internal build · no public link</span>';
         el.innerHTML = `
             <div class="flex items-start gap-4 mb-4">
-                <img src="${app.icon}" alt="${app.name}" class="w-14 h-14 rounded-xl object-cover flex-shrink-0 bg-neutral-100" onerror="this.style.display='none'">
+                ${icon}
                 <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 mb-0.5">
-                        <h3 class="text-lg font-bold group-hover:underline">${app.name}</h3>
-                        <span class="text-xs font-medium text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full">${app.stat}</span>
-                    </div>
-                    <p class="text-sm text-neutral-500">${app.tagline}</p>
+                    <h3 class="text-lg font-bold mb-0.5">${project.name}</h3>
+                    <p class="text-sm text-neutral-500">${project.tagline}</p>
                 </div>
-                <span class="text-neutral-300 group-hover:text-neutral-500 transition text-lg flex-shrink-0">↗</span>
+                <span class="text-[10px] leading-tight font-medium uppercase tracking-wider text-neutral-400 text-right max-w-24">${project.status}</span>
             </div>
-            <p class="text-sm text-neutral-500 leading-relaxed mb-4">${app.desc}</p>
-            <div class="flex items-center justify-between">
-                <div class="flex gap-1.5 flex-wrap">
-                    ${app.tags.map(t => `<span class="text-xs text-neutral-400 border border-neutral-100 px-2 py-0.5 rounded">${t}</span>`).join('')}
-                </div>
-                <span class="text-xs font-medium">${app.url.replace('https://','')}</span>
-            </div>`;
+            <p class="text-sm text-neutral-500 leading-relaxed mb-4">${project.desc}</p>
+            <div class="flex gap-1.5 flex-wrap mb-4">
+                ${project.tags.map(tag => `<span class="text-xs text-neutral-400 border border-neutral-100 px-2 py-0.5 rounded">${tag}</span>`).join('')}
+            </div>
+            ${links}`;
         grid.appendChild(el);
     });
     </script>
