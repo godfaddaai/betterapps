@@ -29,7 +29,7 @@
     <section class="max-w-5xl mx-auto px-5 sm:px-6 pt-20 pb-14">
         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400 mb-5">Catholic · American · Founder-led</p>
         <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight mb-4">The work</h1>
-        <p class="text-neutral-500 text-lg max-w-2xl leading-relaxed">Public products, internal systems, and the durable links that keep each deployment findable when a custom domain is unavailable.</p>
+        <p class="text-neutral-500 text-lg max-w-2xl leading-relaxed">Public products and internal systems built and shipped by Better Apps.</p>
     </section>
 
     <section class="max-w-5xl mx-auto px-5 sm:px-6 pb-24">
@@ -47,14 +47,13 @@
     </section>
 
     <footer class="border-t border-neutral-100 py-8 text-center text-sm text-neutral-400 px-5">
-        © 2026 BetterApps LLC · <a href="/" class="hover:text-neutral-900 transition">Home</a> · <a href="https://betterappsllc.netlify.app" class="hover:text-neutral-900 transition">Netlify address</a>
+        © 2026 BetterApps LLC · <a href="/" class="hover:text-neutral-900 transition">Home</a>
     </footer>
 
     <script>
     const projects = [
         {
             name: 'Wizzmo', url: 'https://wizzmo.app', primaryLabel: 'wizzmo.app',
-            fallback: 'https://capable-kashata-3e7486.netlify.app',
             tagline: 'College matchmaking and mentorship',
             desc: 'Anonymous questions, verified student mentors, and campus-specific guidance built around real college communities.',
             tags: ['Next.js', 'React', 'Supabase', 'Stripe'],
@@ -62,7 +61,6 @@
         },
         {
             name: 'BridgeUp', url: 'https://bridgeup.co', primaryLabel: 'bridgeup.co',
-            fallback: 'https://bridgeup.netlify.app',
             tagline: 'College guidance platform',
             desc: 'Connects prospective students with verified current students for grounded advice on applications, campus life, careers, and aid.',
             tags: ['Next.js', 'React', 'Supabase'],
@@ -70,7 +68,6 @@
         },
         {
             name: 'WasteRoute', url: 'https://wasteroute.app', primaryLabel: 'wasteroute.app',
-            fallback: 'https://wasteroute.netlify.app',
             tagline: 'Field operations for waste haulers',
             desc: 'Route optimization, geofenced notifications, team management, GPS tracking, and offline route continuation.',
             tags: ['React Native', 'Expo', 'Maps'],
@@ -78,7 +75,6 @@
         },
         {
             name: 'DebateTV', url: 'https://debatetv.app', primaryLabel: 'debatetv.app',
-            fallback: 'https://debatetv.netlify.app',
             tagline: 'Real-time video debate platform',
             desc: 'Low-latency debate rooms, structured participation, and AI-assisted judging for live public discourse.',
             tags: ['React Native', 'LiveKit', 'AI'],
@@ -86,7 +82,6 @@
         },
         {
             name: 'FitFormAI', url: 'https://fitformai.com', primaryLabel: 'fitformai.com',
-            fallback: 'https://spectacular-faloodeh-75801e.netlify.app',
             tagline: 'AI fitness coaching and form analysis',
             desc: 'Workout generation, video-based form analysis, and a large exercise library backed by server-side AI workflows.',
             tags: ['React Native', 'Expo', 'Gemini'],
@@ -94,23 +89,20 @@
         },
         {
             name: 'Detach', url: 'https://detach.media', primaryLabel: 'detach.media',
-            fallback: 'https://detachmedia.netlify.app',
             tagline: 'Intentional media consumption',
             desc: 'Downloads content from seven social platforms for intentional, offline viewing instead of endless feeds.',
             tags: ['React Native', 'Expo', 'Node.js'],
             status: 'Public product', icon: 'images/apps/detach.png'
         },
         {
-            name: 'Lifely', url: 'https://lifely-landing-page.netlify.app', primaryLabel: 'Landing page',
-            fallback: 'https://lifelydev.netlify.app', fallbackLabel: 'Open app',
+            name: 'Lifely', url: 'https://lifely-landing-page.netlify.app', primaryLabel: 'lifely.dev',
             tagline: 'Life management and productivity',
             desc: 'Todos, events, notes, goals, routines, and an AI-assisted calendar in one personal operating system.',
             tags: ['React', 'Supabase', 'Gemini'],
-            status: 'Domain recovery', icon: 'images/apps/lifely.svg'
+            status: 'Public product', icon: 'images/apps/lifely.svg'
         },
         {
             name: 'ReadingStinks', url: 'https://readingstinks.com', primaryLabel: 'readingstinks.com',
-            fallback: 'https://readingstinks.netlify.app',
             tagline: 'PDF-to-audiobook conversion',
             desc: 'Turns PDFs into useful audio with summaries and high-quality speech through a cost-conscious multi-provider pipeline.',
             tags: ['React', 'Node.js', 'Gemini', 'Deepgram'],
@@ -133,7 +125,7 @@
         {
             name: 'iMessage Agents',
             tagline: 'Reusable agent infrastructure',
-            desc: 'Consent-bound onboarding, memory, planning, and real-world actions through iMessage. This is a standalone Better Apps system whose current implementation lives inside the Wizzmo repository.',
+            desc: 'Consent-bound onboarding, memory, planning, and real-world actions through iMessage.',
             tags: ['Agent runtime', 'iMessage', 'Consent', 'Human approval'],
             status: 'Internal platform', mark: 'iM'
         }
@@ -147,10 +139,7 @@
             ? `<img src="${project.icon}" alt="${project.name}" class="w-14 h-14 rounded-xl object-cover flex-shrink-0 bg-neutral-100" onerror="this.style.display='none'">`
             : `<div class="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 bg-neutral-900 text-white text-sm font-bold tracking-tight">${project.mark}</div>`;
         const links = project.url
-            ? `<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-                    <a href="${project.url}" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold hover:underline">${project.primaryLabel || 'View project'} ↗</a>
-                    ${project.fallback ? `<a href="${project.fallback}" target="_blank" rel="noopener noreferrer" class="text-xs font-medium text-neutral-400 hover:text-neutral-900 transition">${project.fallbackLabel || 'Netlify backup'} ↗</a>` : ''}
-               </div>`
+            ? `<a href="${project.url}" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold hover:underline">${project.primaryLabel || 'View project'} ↗</a>`
             : '<span class="text-xs font-medium text-neutral-400">Internal build · no public link</span>';
         el.innerHTML = `
             <div class="flex items-start gap-4 mb-4">
