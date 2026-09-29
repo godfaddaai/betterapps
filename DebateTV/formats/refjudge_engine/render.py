@@ -8,7 +8,7 @@ fully in or fully out). Every word sits inside the union of the IG Reels / TikTo
 1080x1920 H.264 ~10 Mbps, -14 LUFS / -1 dBTP, and must pass reel_qa.py (sampled frames: no cut or covered face,
 nothing under platform UI) or it is marked REJECTED and never filed. No network needed except fonts/GSAP CDNs.
 """
-import html, json, os, pathlib, re, shutil, subprocess, sys, tempfile
+import html, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time
 
 import cv2
 
@@ -498,7 +498,14 @@ def render(jobdir):
         sh(["ffmpeg", "-v", "error", "-y", "-sseof", "-0.2", "-i", str(p / "assets/cut.mp4"), "-frames:v", "1", "-q:v", "2", str(p / "assets/freeze.jpg")])
         v = build(job, dur, p)
         # 2 Chrome workers, not "auto": renders run one at a time on this Mac and RAM is the ceiling
-        sh([*HF, "render", "-o", str(p / "raw.mp4"), "--video-bitrate", "10M", "--workers", "2", "--quiet"], cwd=p, timeout=1800)
+        for attempt in range(4):  # under heavy load headless Chrome can time out just starting; that is not the clip's fault
+            try:
+                sh([*HF, "render", "-o", str(p / "raw.mp4"), "--video-bitrate", "10M", "--workers", "2", "--quiet"], cwd=p, timeout=1800)
+                break
+            except RuntimeError as e:
+                if "Chrome cannot start" not in str(e) or attempt == 3:
+                    raise
+                time.sleep(90)
         final = dst / f"{key}.mp4"
         finish(p / "raw.mp4", final)
     (dst / f"{key}.layout.json").write_text(json.dumps({"window": list(WIN), "clip_end": dur}))

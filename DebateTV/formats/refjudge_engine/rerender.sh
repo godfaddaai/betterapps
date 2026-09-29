@@ -16,6 +16,8 @@ for variant in "" xwho; do
   for key in $order; do
     [[ -f jobs/$key/job.json ]] || continue
     name=$key${variant:+-$variant}
+    # already rendered (or rejected) since the platform reframe (logs/platform-reframe.stamp): a restart resumes
+    [[ out/$name/qa.json -nt logs/platform-reframe.stamp || ( -f out/$name/REJECTED.txt && out/$name/REJECTED.txt -nt logs/platform-reframe.stamp ) ]] && continue
     [[ -d out/$name ]] && mv out/$name out_archive/$STAMP/$name
     free=$(df -g ~ | awk 'NR==2{print $4}')
     while (( free < 4 )); do echo "disk ${free}G, waiting"; sleep 120; free=$(df -g ~ | awk 'NR==2{print $4}'); done
