@@ -1,0 +1,6 @@
+jobs/
+out/
+out_archive/
+logs/
+__pycache__/
+assets/*.mp4
