@@ -8,13 +8,15 @@ For each clash Codex finds in the transcript:
 Workers (render.py, Docker) need nothing else, so they never touch YouTube.
 The verdict is the production REF: debatetvbackend /judge with no roomId (no DB writes).
 """
-import argparse, json, pathlib, re, subprocess, sys, tempfile, time, urllib.request
+import argparse, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.request
 
 HERE = pathlib.Path(__file__).parent
 JOBS = HERE / "jobs"
 LEDGER = HERE / "ledger.json"
 JUDGE = "https://debatetvbackend-production.up.railway.app/judge"
 PAD = 0.6  # seconds of source kept either side of the exchange
+# the Codex config default can be a model a ChatGPT login cannot use ("gpt-6.1-sol", 9/30): name it explicitly
+MODEL = os.environ.get("BRAIN_MODEL", "gpt-5.5")
 
 SCHEMA = {
     "type": "object", "additionalProperties": False, "required": ["exchanges"],
@@ -73,19 +75,32 @@ def vtt_words(path):
     return words
 
 
+def transcript_words(vid):
+    """Fallback when YouTube 429s yt-dlp's caption URL (every host here, 9/30): the transcript panel endpoint
+    (youtube-transcript-api) still answers. It times phrases, not words, so each word gets an even share of its
+    phrase; render.py re-aligns caption words to these times anyway."""
+    from youtube_transcript_api import YouTubeTranscriptApi
+    words = []
+    for sn in YouTubeTranscriptApi().fetch(vid, languages=["en", "en-US", "en-GB"]):
+        toks = re.sub(r"\[[^\]]*\]", " ", sn.text).split()
+        # a phrase's listed duration overlaps the next one; spread its words over the first 90% of it
+        for k, w in enumerate(toks):
+            words.append((sn.start + 0.9 * sn.duration * k / max(1, len(toks)), w))
+    words.sort(key=lambda x: x[0])
+    return words
+
+
 def fetch(url, work):
     info = json.loads(run(["yt-dlp", "--no-warnings", "-J", "--skip-download", url]).stdout)
-    for attempt in range(5):  # YouTube 429s the caption endpoint when several brains run at once
+    for attempt in range(2):
         try:
             run(["yt-dlp", "--no-warnings", "-q", "--skip-download", "--write-auto-subs", "--sub-langs", "en",
                  "--sub-format", "vtt", "-o", str(work / "subs"), url])
-            break
-        except subprocess.CalledProcessError:
-            if attempt == 4:
-                raise
-            time.sleep(45 * (attempt + 1))
-    vtt = next(work.glob("subs*.vtt"))
-    return info, vtt_words(vtt)
+            vtt = next(work.glob("subs*.vtt"))
+            return info, vtt_words(vtt)
+        except (subprocess.CalledProcessError, StopIteration):
+            time.sleep(5)
+    return info, transcript_words(info["id"])
 
 
 def transcript_text(words):
@@ -125,6 +140,19 @@ def has_audio(path):
     return "audio" in r.stdout
 
 
+def whole(path, want):
+    """Sound AND a video stream that runs the whole section: yt-dlp has handed back 15 s of video under 33 s of
+    audio (WV29R1M25n8_1328), which later breaks the render."""
+    if not has_audio(path):
+        return False
+    r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=duration",
+                        "-of", "csv=p=0", str(path)], capture_output=True, text=True)
+    try:
+        return float(r.stdout.strip()) >= want - 1.5
+    except ValueError:
+        return False
+
+
 def download_section(url, t0, t1, dst):
     """yt-dlp sometimes returns a section with the audio missing; try formats until it has sound."""
     for fmt in ("bv*[height<=1080][ext=mp4]+ba[ext=m4a]", "bv*[height<=1080]+ba", "b"):
@@ -132,9 +160,9 @@ def download_section(url, t0, t1, dst):
         subprocess.run(["yt-dlp", "--no-warnings", "-q", "-f", fmt, "--download-sections", f"*{t0:.2f}-{t1:.2f}",
                         "--force-keyframes-at-cuts", "--merge-output-format", "mp4", "-o", str(dst), url],
                        capture_output=True, text=True)
-        if dst.exists() and has_audio(dst):
+        if dst.exists() and whole(dst, t1 - t0):
             return
-    raise RuntimeError(f"no section with audio for {url} {t0}-{t1}")
+    raise RuntimeError(f"no whole section with audio for {url} {t0}-{t1}")
 
 
 def judge(ex):
@@ -160,7 +188,7 @@ def main():
         (work / "transcript.txt").write_text(transcript_text(words))
         (work / "schema.json").write_text(json.dumps(SCHEMA))
         out = work / "exchanges.json"
-        subprocess.run(["codex", "exec", "--skip-git-repo-check", "--sandbox", "read-only", "-C", str(work),
+        subprocess.run(["codex", "exec", "-m", MODEL, "--skip-git-repo-check", "--sandbox", "read-only", "-C", str(work),
                         "--output-schema", str(work / "schema.json"), "-o", str(out),
                         PROMPT.format(title=title, channel=channel, n=a.max)],
                        check=True, capture_output=True, text=True, timeout=1800)
@@ -184,7 +212,12 @@ def main():
         d = JOBS / key
         d.mkdir(parents=True, exist_ok=True)
         t0 = max(0, ex["start"] - PAD)
-        download_section(a.url, t0, ex["end"] + PAD, d / "src.mp4")
+        try:
+            download_section(a.url, t0, ex["end"] + PAD, d / "src.mp4")
+        except RuntimeError as e:
+            print(f"skip {key}: {e}", file=sys.stderr)
+            shutil.rmtree(d, ignore_errors=True)
+            continue
         job = {"key": key, "source": {"url": a.url, "id": vid, "title": title, "channel": channel, "t0": round(t0, 2)},
                **ex, "words": cap, "judge_request": req, "judge_response": verdict}
         (d / "job.json").write_text(json.dumps(job, indent=1))

@@ -24,7 +24,7 @@ FACE_FRAC = 0.34           # speaker face height / crop height (a chest-up singl
 FACE_Y = 0.40              # face centre sits this far down the crop (headroom above, chin clear of the band)
 MIN_CROP_H = 420           # never zoom past this (source px), or the upscale goes soft
 FREEZE = 6.6
-CROPS_VERSION = 2          # bump when the reframing logic changes so cached crop plans are redone
+CROPS_VERSION = 3          # bump when the reframing logic changes so cached crop plans are redone
 # One-change hook experiment: REF_VARIANT=xwho renders the same clip with an open-loop hook into out/<key>-xwho/
 VARIANT = os.environ.get("REF_VARIANT", "")
 SUFFIX = f"-{VARIANT}" if VARIANT else ""
@@ -93,7 +93,8 @@ def detect_faces(src, t_from, t_to, fps_s=6):
             my0, my1 = int(ny + 0.05 * h), int(max(rmy, lmy) + 0.2 * h)
             patch = gray[max(0, my0):max(my0 + 1, my1), max(0, mx0):max(mx0 + 1, mx1)]
             mouth = cv2.resize(patch, (24, 12)).astype("float32") if patch.size else None
-            faces.append({"box": (x, y, w, h), "mouth": mouth})
+            marks = [(float(r[k]) * 2, float(r[k + 1]) * 2) for k in range(4, 14, 2)]  # eyes, nose, mouth corners
+            faces.append({"box": (x, y, w, h), "mouth": mouth, "marks": marks})
         samples.append({"t": t, "shot": len(starts) - 1, "faces": faces})
     cap.release()
     return samples, starts
@@ -214,7 +215,7 @@ def plan_crops(src, a, b):
             ch = H - BANNER
             cw = min(W, ch * WIN_AR)
             segs.append({"start": s0, "end": s1, "rect": (min(max(cx - cw / 2, 0), W - cw), BANNER, cw, cw / WIN_AR),
-                         "cx": cx, "faces": 0})
+                         "cx": cx, "faces": 0, "lo": 0, "hi": W})
             continue
         top = max(tr["h"] for tr in mine)
         if top < 0.075 * H:
@@ -225,7 +226,7 @@ def plan_crops(src, a, b):
             ch = H - BANNER
             cw = min(W, ch * WIN_AR)
             segs.append({"start": s0, "end": s1, "rect": (min(max(cx - cw / 2, 0), W - cw), BANNER, cw, cw / WIN_AR),
-                         "cx": cx, "faces": 0})
+                         "cx": cx, "faces": 0, "lo": 0, "hi": W})
             continue
         major = [tr for tr in mine if tr["h"] >= 0.5 * top]
         # who talks when: per sample, the major face with the most mouth motion; majority over a 1.5 s window
@@ -266,8 +267,91 @@ def plan_crops(src, a, b):
             # too noisy to bet a tight crop on it, and the viewer needs to see who is talking to whom
             min_ch = 0.85 * (H - BANNER) if len(major) >= 2 and top < 0.2 * H else MIN_CROP_H
             segs.append({"start": t, "end": t_end, "rect": frame_on(box, others, lo, hi, min_ch, span_box(pts)),
-                         "cx": box[0] + box[2] / 2, "faces": len(major)})
-    return segs
+                         "cx": box[0] + box[2] / 2, "faces": len(major), "lo": lo, "hi": hi,
+                         "speaker": [round(v, 1) for v in box]})
+    return [repair(sg, samples) for sg in segs]
+
+
+# ---- crop audit: the finished reel is judged by reel_qa (faces cut off, faces under the right button rail, no face
+# for too long). Those rules only depend on where each face lands in the footage window, so every planned crop is
+# checked against the tracked faces of its own time span, in source pixels, before anything renders. A crop that
+# would fail is replaced by the nearest one (shift, then zoom out, or in on a wide shot) that passes.
+QA_MIN_FACE = 80           # reel_qa ignores faces under 80 px on the canvas and counts those frames as face-less
+QA_RAIL = (910, 800)       # union of the apps' right button rails on the 1080x1920 canvas: x > 910 from y 800
+
+
+def audit(rect, samples):
+    """(violations, faceless) for one crop over its samples, mirroring reel_qa.check's face rules."""
+    x0, y0, cw, ch = rect
+    sx, sy = WIN[2] / cw, WIN[3] / ch
+    bad = faceless = 0
+    for smp in samples:
+        vis = []
+        for f in smp["faces"]:
+            x, y, w, h = f["box"]
+            ov = max(0, min(x + w, x0 + cw) - max(x, x0)) * max(0, min(y + h, y0 + ch) - max(y, y0))
+            if ov > 0.3 * w * h and h * sy >= QA_MIN_FACE:
+                vis.append(f)
+        if not vis:
+            faceless += 1
+            continue
+        big = max(f["box"][3] for f in vis)
+        hit = False
+        for f in vis:
+            x, y, w, h = f["box"]
+            if h < 0.6 * big:
+                continue
+            m = 0.06 * w  # QA's 4% plus a margin for the 0.5 s between its samples
+            marks = f.get("marks") or [(x + w / 2, y + h / 2)]
+            if any(px < x0 + m or px > x0 + cw - m or py < y0 + m or py > y0 + ch - m for px, py in marks):
+                hit = True
+            elif max(x0 - x, x + w - (x0 + cw)) / w > 0.12 or max(y0 - y, y + h - (y0 + ch)) / h > 0.12:
+                hit = True
+            elif any((px - x0) * sx > QA_RAIL[0] - 12 and WIN[1] + (py - y0) * sy > QA_RAIL[1] - 12 for px, py in marks):
+                hit = True
+        bad += hit
+    return bad, faceless
+
+
+def repair(seg, samples):
+    """Keep the planned crop when it passes the audit; otherwise search nearby crops (same zoom shifted, zoomed out,
+    face placed higher to clear the rail; zoomed in when faces are too small to count) and take the one with the
+    fewest failing samples, then the fewest face-less ones, then the least change from the plan."""
+    mine = [p for p in samples if seg["start"] - 0.05 <= p["t"] <= seg["end"] + 0.05]
+    if not mine:
+        return seg
+    x0, y0, cw, ch = seg["rect"]
+    bad, fl = audit(seg["rect"], mine)
+    if not bad and fl <= 0.1 * len(mine):
+        return seg
+    lo, hi = seg.get("lo", 0), seg.get("hi", W)
+    max_ch = min(H - BANNER, (hi - lo) / WIN_AR)
+    sp = seg.get("speaker")
+    fcx, fcy = (sp[0] + sp[2] / 2, sp[1] + sp[3] / 2) if sp else (x0 + cw / 2, y0 + 0.4 * ch)
+    inside = lambda r: r[0] <= fcx <= r[0] + r[2] and r[1] <= fcy <= r[1] + r[3]
+    best = (bad * 10 + fl * 6, 0.0, seg["rect"])
+    for f in (0.7, 0.85, 1.0, 1.12, 1.25, 1.4, 1.6, 1.85, 2.2, 9):
+        c_h = min(max(ch * f, MIN_CROP_H), max_ch)
+        c_w = c_h * WIN_AR
+        xs = {min(max(x, lo), hi - c_w) for x in [fcx - c_w * k for k in (0.5, 0.42, 0.35, 0.58)] +
+              [lo + (hi - lo - c_w) * k / 16 for k in range(17)]}
+        ys = {min(max(fcy - c_h * k, BANNER), H - c_h) for k in (0.4, 0.33, 0.27, 0.47)}
+        for nx in xs:
+            for ny in ys:
+                r = (nx, ny, c_w, c_h)
+                if sp and not inside(r):
+                    continue  # the fix never drops the speaker to save a background face
+                b, fl2 = audit(r, mine)
+                # tie-breaks: stay close to the plan's zoom, keep the speaker near the centre
+                change = abs(c_h / ch - 1) + abs((fcx - nx) / c_w - 0.5)
+                score = (b * 10 + fl2 * 6, change)
+                if score < best[:2]:
+                    best = (score[0], change, r)
+        if best[0] == 0:
+            break
+    if best[2] != seg["rect"]:
+        seg = dict(seg, rect=tuple(best[2]), repaired=[bad, fl, best[0]])
+    return seg
 
 
 def overlay_seconds(src, segs, a, b):
@@ -300,8 +384,16 @@ def overlay_seconds(src, segs, a, b):
 
 def cut_video(job, src, dst):
     t0 = job["source"]["t0"]
-    probe = sh(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(src)]).stdout
-    a, b = job["start"] - t0, min(job["end"] - t0 + 0.35, float(probe) - 0.1)
+    # the video stream can end before the audio (a yt-dlp section download cut short): trim to the shorter one, or
+    # ffmpeg's trim hands concat an empty segment and dies with "sending frames to consumers: Invalid argument"
+    probe = sh(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,duration:format=duration", "-of", "json",
+                str(src)]).stdout
+    meta = json.loads(probe)
+    ends = [float(st["duration"]) for st in meta.get("streams", []) if st.get("duration") not in (None, "N/A")]
+    end = min(ends + [float(meta["format"]["duration"])])
+    a, b = job["start"] - t0, min(job["end"] - t0 + 0.35, end - 0.1)
+    if b - a < 0.75 * (job["end"] - job["start"]):
+        raise Rejected(f"source section is cut short ({end:.1f}s of video for a {job['end'] - job['start']:.0f}s exchange)")
     # the crop plan is the slow part (face tracking at 6 fps); both hook variants of a job share it
     cache = pathlib.Path(src).parent / "crops.json"
     stamp = [CROPS_VERSION, a, b, os.path.getmtime(src)]
