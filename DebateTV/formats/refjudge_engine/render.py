@@ -24,7 +24,7 @@ FACE_FRAC = 0.34           # speaker face height / crop height (a chest-up singl
 FACE_Y = 0.40              # face centre sits this far down the crop (headroom above, chin clear of the band)
 MIN_CROP_H = 420           # never zoom past this (source px), or the upscale goes soft
 FREEZE = 6.6
-CROPS_VERSION = 4          # bump when the reframing logic changes so cached crop plans are redone
+CROPS_VERSION = 5          # bump when the reframing logic changes so cached crop plans are redone
 # One-change hook experiment: REF_VARIANT=xwho renders the same clip with an open-loop hook into out/<key>-xwho/
 VARIANT = os.environ.get("REF_VARIANT", "")
 SUFFIX = f"-{VARIANT}" if VARIANT else ""
@@ -330,7 +330,8 @@ def repair(seg, samples):
     fcx, fcy = (sp[0] + sp[2] / 2, sp[1] + sp[3] / 2) if sp else (x0 + cw / 2, y0 + 0.4 * ch)
     inside = lambda r: r[0] <= fcx <= r[0] + r[2] and r[1] <= fcy <= r[1] + r[3]
     best = (bad * 10 + fl * 6, 0.0, seg["rect"])
-    for f in (0.7, 0.85, 1.0, 1.12, 1.25, 1.4, 1.6, 1.85, 2.2, 9):
+    # tighter zooms first matter for wide shots, where every face is ~65 px and reads as no face at all on the reel
+    for f in (1.0, 1.12, 0.85, 1.25, 0.7, 1.4, 0.6, 1.6, 0.5, 1.85, 0.43, 2.2, 9):
         c_h = min(max(ch * f, MIN_CROP_H), max_ch)
         c_w = c_h * WIN_AR
         xs = {min(max(x, lo), hi - c_w) for x in [fcx - c_w * k for k in (0.5, 0.42, 0.35, 0.58)] +
