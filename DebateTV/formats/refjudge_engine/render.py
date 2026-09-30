@@ -24,7 +24,7 @@ FACE_FRAC = 0.34           # speaker face height / crop height (a chest-up singl
 FACE_Y = 0.40              # face centre sits this far down the crop (headroom above, chin clear of the band)
 MIN_CROP_H = 420           # never zoom past this (source px), or the upscale goes soft
 FREEZE = 6.6
-CROPS_VERSION = 3          # bump when the reframing logic changes so cached crop plans are redone
+CROPS_VERSION = 4          # bump when the reframing logic changes so cached crop plans are redone
 # One-change hook experiment: REF_VARIANT=xwho renders the same clip with an open-loop hook into out/<key>-xwho/
 VARIANT = os.environ.get("REF_VARIANT", "")
 SUFFIX = f"-{VARIANT}" if VARIANT else ""
@@ -301,13 +301,13 @@ def audit(rect, samples):
             x, y, w, h = f["box"]
             if h < 0.6 * big:
                 continue
-            m = 0.06 * w  # QA's 4% plus a margin for the 0.5 s between its samples
+            m = 0.08 * w  # QA's 4% plus a margin: detection on the upscaled render lands a few px off the source's
             marks = f.get("marks") or [(x + w / 2, y + h / 2)]
             if any(px < x0 + m or px > x0 + cw - m or py < y0 + m or py > y0 + ch - m for px, py in marks):
                 hit = True
-            elif max(x0 - x, x + w - (x0 + cw)) / w > 0.12 or max(y0 - y, y + h - (y0 + ch)) / h > 0.12:
+            elif max(x0 - x, x + w - (x0 + cw)) / w > 0.1 or max(y0 - y, y + h - (y0 + ch)) / h > 0.1:
                 hit = True
-            elif any((px - x0) * sx > QA_RAIL[0] - 12 and WIN[1] + (py - y0) * sy > QA_RAIL[1] - 12 for px, py in marks):
+            elif any((px - x0) * sx > QA_RAIL[0] - 40 and WIN[1] + (py - y0) * sy > QA_RAIL[1] - 40 for px, py in marks):
                 hit = True
         bad += hit
     return bad, faceless
@@ -335,7 +335,9 @@ def repair(seg, samples):
         c_w = c_h * WIN_AR
         xs = {min(max(x, lo), hi - c_w) for x in [fcx - c_w * k for k in (0.5, 0.42, 0.35, 0.58)] +
               [lo + (hi - lo - c_w) * k / 16 for k in range(17)]}
-        ys = {min(max(fcy - c_h * k, BANNER), H - c_h) for k in (0.4, 0.33, 0.27, 0.47)}
+        # rows above BANNER (where Jubilee burns in its question) only when a head reaches up into them: the
+        # overlay OCR still rejects a clip whose crop then shows that text
+        ys = {min(max(fcy - c_h * k, floor), H - c_h) for k in (0.4, 0.33, 0.27, 0.47, 0.55) for floor in (BANNER, 0)}
         for nx in xs:
             for ny in ys:
                 r = (nx, ny, c_w, c_h)
@@ -343,7 +345,7 @@ def repair(seg, samples):
                     continue  # the fix never drops the speaker to save a background face
                 b, fl2 = audit(r, mine)
                 # tie-breaks: stay close to the plan's zoom, keep the speaker near the centre
-                change = abs(c_h / ch - 1) + abs((fcx - nx) / c_w - 0.5)
+                change = abs(c_h / ch - 1) + abs((fcx - nx) / c_w - 0.5) + (1 if ny < BANNER else 0)
                 score = (b * 10 + fl2 * 6, change)
                 if score < best[:2]:
                     best = (score[0], change, r)
