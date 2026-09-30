@@ -221,8 +221,11 @@ def main():
         job = {"key": key, "source": {"url": a.url, "id": vid, "title": title, "channel": channel, "t0": round(t0, 2)},
                **ex, "words": cap, "judge_request": req, "judge_response": verdict}
         (d / "job.json").write_text(json.dumps(job, indent=1))
-        ledger[key] = {"title": title, "motion": ex["motion"]}
-        LEDGER.write_text(json.dumps(ledger, indent=1))
+        # several brains run at once (render-farm feeder): merge with what the others wrote since we started
+        ledger = {**(json.loads(LEDGER.read_text()) if LEDGER.exists() else {}), key: {"title": title, "motion": ex["motion"]}}
+        tmp = LEDGER.with_suffix(f".{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(ledger, indent=1))
+        tmp.replace(LEDGER)
         made += 1
         print(f"job {key}: {ex['matchup']} — {ex['motion']}", file=sys.stderr)
     print(f"{made} jobs from {len(exchanges)} exchanges", file=sys.stderr)
