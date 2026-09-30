@@ -484,7 +484,17 @@ def post_txt(job, v):
             f"SOURCE: {job['source']['title']} ({job['source']['url']}) {job['start']:.0f}s–{job['end']:.0f}s\n")
 
 
+def wait_for_calm(limit=float(os.environ.get("LOAD_LIMIT", 40)), max_wait=4 * 3600):
+    """Other sessions (simulators, builds) can push this Mac's load past 500; a render started then just times out
+    (Chrome start, frame extraction). Wait until the 5-minute load average is back under the limit."""
+    waited = 0
+    while os.getloadavg()[1] > limit and waited < max_wait:
+        time.sleep(60)
+        waited += 60
+
+
 def render(jobdir):
+    wait_for_calm()
     job = json.loads((jobdir / "job.json").read_text())
     key = job["key"] + SUFFIX
     dst = OUT / key
