@@ -33,7 +33,8 @@ _HF = pathlib.Path(os.environ.get("HF_BIN", "~/.local/hyperframes/node_modules/.
 HF = [str(_HF)] if _HF.exists() else ["npx", "--yes", "hyperframes"]
 YUNET = os.path.expanduser(os.environ.get("YUNET_MODEL", "~/.local/share/reel_qa/face_detection_yunet_2023mar.onnx"))
 # the QA gate lives with the queue (every format goes through it); a render that fails it is never filed
-QA_DIRS = [os.path.expanduser("~/DebateTV2-content-queue/tools/content_queue"), os.path.expanduser("~/DebateTV2/tools/content_queue")]
+QA_DIRS = [os.path.expanduser(d) for d in (os.environ.get("REEL_QA_DIR", ""), "~/DebateTV2-content-queue/tools/content_queue",
+                                              "~/DebateTV2/tools/content_queue") if d]
 
 
 class Rejected(Exception):
