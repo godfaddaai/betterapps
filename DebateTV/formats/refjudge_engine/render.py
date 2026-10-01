@@ -476,42 +476,57 @@ def gold_side(job):
     return "a" if a and not b else "b"
 
 
-def aligned_words(job):
-    """Caption words = Codex's corrected line text (e.g. "Kamala", not the auto-caption "KLA"),
-    each timed by aligning it to YouTube's per-word timestamps; unmatched words are interpolated."""
-    import difflib
-    norm = lambda w: re.sub(r"[^a-z0-9']", "", w.lower())
-    lines, out = job["lines"], []
-    for i, l in enumerate(lines):
-        t_end = lines[i + 1]["start"] if i + 1 < len(lines) else job["end"] + 0.4
-        vtt = [w for w in job["words"] if l["start"] - 0.05 <= w["t"] < t_end - 0.05]
-        mine = l["text"].split()
-        times = [None] * len(mine)
-        sm = difflib.SequenceMatcher(a=[norm(w) for w in mine], b=[norm(w["w"]) for w in vtt], autojunk=False)
-        for blk in sm.get_matching_blocks():
-            for k in range(blk.size):
-                times[blk.a + k] = vtt[blk.b + k]["t"]
-        # interpolate the gaps between known times
-        known = [(k, t) for k, t in enumerate(times) if t is not None] or [(0, l["start"])]
-        if known[0][0] != 0:
-            known.insert(0, (0, l["start"]))
-        if known[-1][0] != len(mine) - 1:
-            known.append((len(mine) - 1, max(known[-1][1], t_end - 0.3)))
-        for (k0, t0), (k1, t1) in zip(known, known[1:]):
-            for k in range(k0 + 1, k1):
-                times[k] = t0 + (t1 - t0) * (k - k0) / (k1 - k0)
-        for k, w in enumerate(mine):
-            out.append({"t": round(times[k] if times[k] is not None else l["start"], 2), "w": w, "s": l["speaker"]})
-    # times must only move forward, or two captions end up on screen at once
-    for i in range(1, len(out)):
-        out[i]["t"] = max(out[i]["t"], out[i - 1]["t"] + 0.04)
+CAPSYNC_PY = [os.path.expanduser(p) for p in (os.environ.get("CAPSYNC_PY", ""), "~/render/capsync/venv/bin/python",
+                                                "~/.arena/capsync/venv/bin/python") if p]
+
+
+def capsync_dir():
+    d = next((d for d in QA_DIRS if os.path.exists(os.path.join(d, "capsync.py"))), None)
+    py = next((p for p in CAPSYNC_PY if os.path.exists(p)), None)
+    if not d or not py:
+        raise RuntimeError("capsync.py / its venv not found; refusing to caption from YouTube timings")
+    return d, py
+
+
+def spoken_words(job, cut):
+    """Every word as spoken in the clip's own audio (cut.mp4, t=0 = job start): faster-whisper words re-timed by
+    wav2vec2 forced alignment (capsync.py). 10/1: YouTube caption / transcript timings put captions seconds off."""
+    d, py = capsync_dir()
+    prompt = f"{job['matchup']}. {job['a_name']}, {job['b_name']}. {job['motion']}"
+    r = sh([py, os.path.join(d, "capsync.py"), "words", str(cut), "--prompt", prompt], timeout=900)
+    return json.loads(r.stdout.strip().splitlines()[-1])
+
+
+def aligned_words(job, spoken):
+    """Caption words = the words actually spoken, at their aligned times. Codex's line text only lends the speaker
+    and its spelling (e.g. "Kamala" where whisper hears "Camela"); a Codex word nobody said is dropped."""
+    d, _ = capsync_dir()
+    sys.path.insert(0, d)
+    import capsync
+    norm = capsync.norm
+    mine = [(w, l["speaker"]) for l in job["lines"] for w in l["text"].split() if norm(w)]
+    pairs = capsync.align_seq([norm(w) for w, _ in mine], [norm(w["w"]) for w in spoken])
+    back = {j: i for i, j in pairs.items()}
+    out, spk = [], None
+    for j, w in enumerate(spoken):
+        if not norm(w["w"]):
+            continue
+        i = back.get(j)
+        if i is not None:
+            spk = mine[i][1]
+        elif spk is None:  # before the first matched word: whoever owns the next matched one
+            spk = next((mine[back[k]][1] for k in range(j, len(spoken)) if k in back), job["lines"][0]["speaker"])
+        text = mine[i][0] if i is not None and norm(mine[i][0]) == norm(w["w"]) else w["w"]
+        out.append({"t": w["t"] + job["start"], "e": w["e"] + job["start"], "w": text, "s": spk})
     return out
 
 
-def captions(job, dur):
+def captions(job, dur, spoken):
     t0 = job["start"]
     norm = lambda w: re.sub(r"[^a-z0-9']", "", w.lower())
-    toks = [(w["t"] - t0, w["w"], w["s"]) for w in aligned_words(job) if norm(w["w"]) not in ("uh", "um", "") and 0 <= w["t"] - t0 < dur]
+    words = [w for w in aligned_words(job, spoken) if norm(w["w"]) not in ("uh", "um", "") and 0 <= w["t"] - t0 < dur]
+    toks = [(w["t"] - t0, w["w"], w["s"]) for w in words]
+    ends = [w["e"] - t0 for w in words]
     # the kill phrase is highlighted where it occurs as a phrase, not every time one of its words appears
     kp = [norm(k) for k in job["kill_phrase"].split() if norm(k)]
     kill_idx, punch = set(), 0
@@ -529,9 +544,10 @@ def captions(job, dur):
         chunks.append(cur)
     caps, tl, turns, last = [], [], [], None
     for n, ch in enumerate(chunks):
+        # on screen from its first word's onset until the next chunk, or 0.35 s after its last word ends
         a = ch[0][0]
-        b = min(chunks[n + 1][0][0] if n + 1 < len(chunks) else dur, a + 1.6)
-        b = max(b, a + 0.2)
+        nxt = chunks[n + 1][0][0] if n + 1 < len(chunks) else dur
+        b = min(nxt, max(ends[ch[-1][3]] + 0.35, a + 0.3), a + 2.5)
         side = ch[0][2].lower()
         cls = "b" if side == gold else "a"  # css: .cap.b is gold
         parts = [f"<b>{html.escape(w)}</b>" if i in kill_idx else html.escape(w) for _, w, _, i in ch]
@@ -546,9 +562,9 @@ def fit(text, big, small, limit):
     return big if len(text) <= limit else small
 
 
-def build(job, dur, d):
+def build(job, dur, d, spoken):
     v = verdict_bits(job)
-    caps, tl, turns, punch = captions(job, dur)
+    caps, tl, turns, punch = captions(job, dur, spoken)
     hook = f'AI ref scored <em>{html.escape(job["matchup"])}</em>'
     if VARIANT == "xwho":
         hook = f'Who won <em>{html.escape(job["matchup"])}</em>? AI ref decides'
@@ -602,7 +618,9 @@ def render(jobdir):
             shutil.copy(HERE / "tpl" / f, p / f)
         dur, nshots = cut_video(job, jobdir / "src.mp4", p / "assets/cut.mp4")
         sh(["ffmpeg", "-v", "error", "-y", "-sseof", "-0.2", "-i", str(p / "assets/cut.mp4"), "-frames:v", "1", "-q:v", "2", str(p / "assets/freeze.jpg")])
-        v = build(job, dur, p)
+        spoken = spoken_words(job, p / "assets/cut.mp4")
+        (dst / "spoken.json").write_text(json.dumps(spoken))
+        v = build(job, dur, p, spoken)
         # 2 Chrome workers, not "auto": renders run one at a time on this Mac and RAM is the ceiling
         for attempt in range(4):  # under heavy load headless Chrome can time out just starting; that is not the clip's fault
             try:
@@ -614,7 +632,7 @@ def render(jobdir):
                 time.sleep(90)
         final = dst / f"{key}.mp4"
         finish(p / "raw.mp4", final)
-    (dst / f"{key}.layout.json").write_text(json.dumps({"window": list(WIN), "clip_end": dur}))
+    (dst / f"{key}.layout.json").write_text(json.dumps({"window": list(WIN), "clip_end": dur, "captions": [60, 1266, 840, 176]}))
     (dst / "post.txt").write_text(post_txt(job, v))
     r = qa(final)
     (dst / "qa.json").write_text(json.dumps(r, indent=1))
