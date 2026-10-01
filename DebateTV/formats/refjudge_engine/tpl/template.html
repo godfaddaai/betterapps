@@ -96,7 +96,8 @@
         {{CAPTL}}
       ];
       caps.forEach(([id, a, b]) => {
-        tl.fromTo(id, { scale: 0.86, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: 0.08, ease: "power2.out" }, a);
+        // the pop must finish before the hide, or the tween re-shows the caption after it and it never leaves
+        tl.fromTo(id, { scale: 0.86, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: Math.min(0.08, (b - a) / 2), ease: "power2.out" }, a);
         tl.set(id, { autoAlpha: 0 }, b);
       });
 

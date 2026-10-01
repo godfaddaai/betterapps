@@ -538,7 +538,9 @@ def captions(job, dur, spoken):
     gold = gold_side(job)
     chunks, cur = [], []
     for i, (t, w, s) in enumerate(toks):
-        if cur and (len(cur) == 3 or s != cur[-1][2] or t - cur[-1][0] > 0.9):
+        # words crammed together (crosstalk) stay in one caption up to 5 words rather than flashing 3 captions a second
+        crammed = cur and t - cur[0][0] < 0.25 and len(cur) < 5
+        if cur and not crammed and (len(cur) >= 3 or s != cur[-1][2] or t - cur[-1][0] > 0.9):
             chunks.append(cur); cur = []
         cur.append((t, w, s, i))
     if cur:
