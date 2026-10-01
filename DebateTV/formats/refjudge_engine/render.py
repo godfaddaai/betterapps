@@ -492,8 +492,9 @@ def spoken_words(job, cut):
     """Every word as spoken in the clip's own audio (cut.mp4, t=0 = job start): faster-whisper words re-timed by
     wav2vec2 forced alignment (capsync.py). 10/1: YouTube caption / transcript timings put captions seconds off."""
     d, py = capsync_dir()
-    prompt = f"{job['matchup']}. {job['a_name']}, {job['b_name']}. {job['motion']}"
-    r = sh([py, os.path.join(d, "capsync.py"), "words", str(cut), "--prompt", prompt], timeout=900)
+    # no initial prompt: on crosstalk a names prompt made whisper drop one speaker's words (2S-WJN3L5eo_1532, 10/1),
+    # and the QA gate transcribes the same way, so render and gate hear the clip alike
+    r = sh([py, os.path.join(d, "capsync.py"), "words", str(cut)], timeout=900)
     return json.loads(r.stdout.strip().splitlines()[-1])
 
 
