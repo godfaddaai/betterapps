@@ -431,11 +431,14 @@ def cut_video(job, src, dst):
 def finish(raw, dst):
     """Platform master: H.264 High 1080x1920 30 fps ~10 Mbps (encoded by HyperFrames), audio two-pass
     loudnorm to -14 LUFS / -1 dBTP (what IG, TikTok and Shorts normalise toward), AAC 48 kHz, faststart."""
-    m = sh(["ffmpeg", "-hide_banner", "-i", str(raw), "-af", "loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json",
+    m = sh(["ffmpeg", "-hide_banner", "-i", str(raw), "-af", "loudnorm=I=-14:TP=-2:LRA=11:print_format=json",
             "-f", "null", "-"]).stderr
     j = json.loads(m[m.rindex("{"):m.rindex("}") + 1])
-    ln = (f"loudnorm=I=-14:TP=-1.5:LRA=11:measured_I={j['input_i']}:measured_TP={j['input_tp']}:"
-          f"measured_LRA={j['input_lra']}:measured_thresh={j['input_thresh']}:offset={j['target_offset']}:linear=true")
+    # loudnorm alone left 6 of 45 10/3 masters at -0.9 to 0.0 dBTP after AAC (spec -1); a 4x-oversampled limiter at
+    # -3 dBFS brings all under -1.5 dBTP and moves loudness by <= 0.2 LU (tested on the Air 10/3, account-safety audit)
+    ln = (f"loudnorm=I=-14:TP=-2:LRA=11:measured_I={j['input_i']}:measured_TP={j['input_tp']}:"
+          f"measured_LRA={j['input_lra']}:measured_thresh={j['input_thresh']}:offset={j['target_offset']}:linear=true,"
+          "aresample=192000,alimiter=limit=0.7:attack=1:release=50:level=0,aresample=48000")
     sh(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-map", "0:v", "-map", "0:a", "-c:v", "copy", "-af", ln,
         "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", str(dst)])
 
