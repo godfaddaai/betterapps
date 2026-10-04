@@ -591,12 +591,20 @@ def build(job, dur, d, spoken):
 
 
 def post_txt(job, v):
-    tags = " ".join("#" + re.sub(r"[^a-z0-9]", "", n.lower()) for n in (job["a_name"], job["b_name"]) if " " in n.strip() or n[:1].isupper())
+    # caption gate (ARENA render-farm/caption_gate.py, on the Air in ~/render/farm): never name the winner, the REF's
+    # call is the payoff at the end; hashtags = famous names + one topic tag + #debate (Reagan 10/3)
+    sys.path[:0] = [str(p) for p in (pathlib.Path.home() / "Documents/ARENA/render-farm",
+                                     pathlib.Path.home() / "render/farm") if p.is_dir()]
+    from caption_gate import OPEN_LINE, hashtags, problems
+    tags = hashtags([job["a_name"], job["b_name"]], job.get("motion"), job.get("matchup"))
+    cap = f"{OPEN_LINE} (🎥 {job['source'].get('channel') or 'source'}) {tags}"
+    bad = problems(cap, winner=v["w"], loser=v["l"])
+    assert not bad, f"caption gate: {bad}: {cap}"
     return (f"MATCHUP: {job['matchup']}\nMOTION: {job['motion']}\n"
-            f"REF: {v['w']} {v['ws']} – {v['l']} {v['ls']}\n"
-            f"CAPTION: the AI sided with {v['w'].lower()}. was it right? 😭 (🎥 {job['source'].get('channel') or 'source'}) {tags} #debate #ai #fyp\n"
-            f"PINNED COMMENT: we built an AI ref that scores debates. you can debate anyone on it — it's called debatetv\n"
-            f"SOURCE: {job['source']['title']} ({job['source']['url']}) {job['start']:.0f}s–{job['end']:.0f}s\n")
+            f"REF: {v['w']} {v['ws']} vs {v['l']} {v['ls']}\n"
+            f"CAPTION: {cap}\n"
+            f"PINNED COMMENT: we built an AI ref that scores debates. you can debate anyone on it, it's called debatetv\n"
+            f"SOURCE: {job['source']['title']} ({job['source']['url']}) {job['start']:.0f}s to {job['end']:.0f}s\n")
 
 
 def wait_for_calm(limit=float(os.environ.get("LOAD_LIMIT", 40)), max_wait=4 * 3600):
