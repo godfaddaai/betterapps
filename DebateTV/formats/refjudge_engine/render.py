@@ -29,7 +29,13 @@ BAND = (60, 1266, 840, 176)  # caption band, the one capsync.py measures
 MAX_CLIP = 19.0            # seconds to the scorecard (11 of the 15 reference winners on 10/6 ran 6 to 19 s)
 MIN_CLIP = 7.0
 LEAD, TAIL = 0.12, 0.30    # air before the first word and after the last one of the kept window
-BEAT = 14 / 30             # the chain sound's beat (ARENA render-farm/audio/sfx_map.py): the ask lands 8 beats after the drop
+BEAT = 14 / 30             # the chain sound's beat (ARENA render-farm/audio/sfx_map.py)
+# Sound, from the audio map (ARENA render-farm/audio/audio_map.json, measured on the reference posts 10/6;
+# `audio_map.py check` fails when these drift from it):
+ASK_FRAMES = 110           # scorecard to ask: the Umax reel's own cut after its reveal (beat 8, 17 ms after the bass hit)
+REVEAL_LEAD = 0.075        # the chain sound starts this long before the scorecard's first frame: its hit leads the
+                           # frame by 55 ms as in the Umax reel, and the bass takes 20 ms to rise
+PAYOFF_SNAP = 0.55         # a payoff that ends this close to the scorecard keeps its boom on the scorecard
 CTA = 3.5                  # the end card's hold (41_whowon cta_secs)
 CATS = [("logicalConsistency", "LOGIC"), ("factualAccuracy", "FACTS"), ("rhetoricalSkill", "RHETORIC"),
         ("rebuttalQuality", "REBUTTAL"), ("fallacyAvoidance", "CLEAN PLAY")]
@@ -695,8 +701,25 @@ def build(job, dur, d, words):
     v = verdict_bits(job)
     caps, tl = captions(job, dur, words)
     f_card = frame(dur)
-    f_ask = frame(f_card + math_floor3(8 * BEAT))
+    f_ask = frame(f_card + math_floor3(ASK_FRAMES / 30))
     total = round(f_ask + CTA, 2)
+    # one boom a piece: on the end of the payoff's last word (the gold words), where the "Who won the argument?"
+    # reference has it; the scorecard then lands on the sound's drop alone. No payoff in the cut, or one that ends on
+    # the scorecard: the boom stays on the scorecard's first frame.
+    said = [w for w in words if re.sub(r"[^a-z0-9']", "", w["w"].lower()) not in ("uh", "um", "") and 0 <= w["t"] < dur]
+    ks = kill_span(said, job["kill_phrase"])
+    k_end = said[ks[1]]["e"] if ks else None
+    pay = frame(k_end) if k_end is not None and dur - k_end >= PAYOFF_SNAP else None
+    f_boom = pay if pay is not None else f_card
+    bed_at = max(0.0, f_card - REVEAL_LEAD)
+    boom_src, boom_dur = "fx-boom.wav", 1.176
+    if pay is not None:
+        # the payoff boom's tail is faded out by the frame the chain sound starts: the boom and the drop never ring together
+        boom_src, boom_dur = "fx-payoff.wav", min(1.176, math_floor3(bed_at - (pay - 0.012)))
+        if boom_dur < 1.176:
+            sh(["ffmpeg", "-v", "error", "-y", "-i", str(d / "assets/fx-payoff.wav"), "-t", f"{boom_dur:.3f}", "-af",
+                f"afade=t=out:st={boom_dur - 0.08:.3f}:d=0.08", str(d / "assets/fx-pay.wav")])
+            boom_src = "fx-pay.wav"
     hook, hook_px = title_of(job)
     sc = job["judge_response"]["judgment"]["scores"]
     avg = job["judge_response"]["averageScores"]
@@ -711,8 +734,10 @@ def build(job, dur, d, words):
     s = (HERE / "tpl/template.html").read_text()
     rep = {"{{CAPS}}": "\n      ".join(caps), "{{CAPTL}}": ",\n        ".join(tl),
            "{{VIDEO_DUR}}": f"{dur:.3f}", "{{TOTAL}}": f"{total:.2f}", "{{TAIL_DUR}}": f"{total - dur:.3f}",
-           "{{F_CARD}}": f"{f_card:.3f}", "{{F_ASK}}": f"{f_ask:.3f}", "{{BED_DUR}}": f"{total - f_card:.3f}",
-           "{{BOOM_AT}}": f"{max(0.0, f_card - 0.012):.3f}", "{{CLICK_AT}}": f"{f_ask - 0.0015:.4f}",
+           "{{F_CARD}}": f"{f_card:.3f}", "{{F_ASK}}": f"{f_ask:.3f}",
+           "{{BED_AT}}": f"{bed_at:.3f}", "{{BED_DUR}}": f"{total - bed_at:.3f}",
+           "{{BOOM_SRC}}": boom_src, "{{BOOM_DUR}}": f"{boom_dur:.3f}",
+           "{{BOOM_AT}}": f"{max(0.0, f_boom - 0.012):.3f}", "{{CLICK_AT}}": f"{f_ask - 0.0015:.4f}",
            "{{HOOK_HTML}}": hook, "{{HOOK_PX}}": str(hook_px), "{{MOTION}}": html.escape(job["motion"]),
            "{{CELL_A}}": cell("A"), "{{CELL_B}}": cell("B"), "{{ROWS}}": rows,
            "{{CALL}}": "Too close to call" if tie else f'{html.escape(v["w"])} wins',
@@ -721,7 +746,8 @@ def build(job, dur, d, words):
         s = s.replace(k, val)
     assert "{{" not in s, re.findall(r"{{\w+}}", s)
     (d / "index.html").write_text(s)
-    return v, {"card": f_card, "ask": f_ask, "total": total, "title": html.unescape(re.sub(r"<[^>]+>", "", hook)).replace("\xa0", " ")}
+    return v, {"card": f_card, "ask": f_ask, "boom": f_boom, "boom_on": "payoff" if pay is not None else "scorecard",
+               "bed": bed_at, "total": total, "title": html.unescape(re.sub(r"<[^>]+>", "", hook)).replace("\xa0", " ")}
 
 
 def math_floor3(x):

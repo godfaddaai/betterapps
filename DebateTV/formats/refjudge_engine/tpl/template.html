@@ -100,10 +100,11 @@
       </div>
 
       <audio id="voice" src="assets/cut.mp4" data-start="0" data-duration="{{VIDEO_DUR}}" data-track-index="10" data-volume="1"></audio>
-      <!-- sound map 2 (ARENA render-farm/audio/sfx_map.py): the chain's sound from its drop on the scorecard's first
-           frame, a boom whose attack is on that frame, a click whose attack is on the ask's first frame -->
-      <audio id="bed" src="assets/chain-drop.m4a" data-start="{{F_CARD}}" data-duration="{{BED_DUR}}" data-track-index="14" data-volume="1"></audio>
-      <audio id="fx0_boom" src="assets/fx-boom.wav" data-start="{{BOOM_AT}}" data-duration="1.176" data-track-index="20" data-volume="1"></audio>
+      <!-- audio map 3 (ARENA render-farm/audio/audio_map.json): the chain's sound with its hit 55 ms before the
+           scorecard's first frame (the Umax reel's own lead), one boom whose attack is on the frame the payoff's last
+           word ends and gone before the sound starts (on the scorecard when there is no payoff), a click whose attack is on the ask's first frame -->
+      <audio id="bed" src="assets/chain-drop2.m4a" data-start="{{BED_AT}}" data-duration="{{BED_DUR}}" data-track-index="14" data-volume="1"></audio>
+      <audio id="fx0_boom" src="assets/{{BOOM_SRC}}" data-start="{{BOOM_AT}}" data-duration="{{BOOM_DUR}}" data-track-index="20" data-volume="1"></audio>
       <audio id="fx1_click" src="assets/fx-click.wav" data-start="{{CLICK_AT}}" data-duration="0.1" data-track-index="21" data-volume="1"></audio>
     </div>
     <script>
