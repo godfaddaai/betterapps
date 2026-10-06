@@ -4,7 +4,10 @@
 
 Per job: the active speaker is found per camera shot and per turn (YuNet faces + mouth motion), and the crop keeps
 that face whole and centred in the footage window (split screens never leak the other panel; other faces are kept
-fully in or fully out). Every word sits inside the union of the IG Reels / TikTok / Shorts safe zones. The master is
+fully in or fully out). Every word sits inside the union of the IG Reels / TikTok / Shorts safe zones.
+Since 10/6 (the daily content read) every render opens with its title on frame 0, plays 19 s or less of the judged
+exchange (pick_window: whole sentences around the payoff line) before the REF's scorecard, and ends on 41_whowon's
+"Get your own argument scored" card with the app's screens and the App Store badge. The master is
 1080x1920 H.264 ~10 Mbps, -14 LUFS / -1 dBTP, and must pass reel_qa.py (sampled frames: no cut or covered face,
 nothing under platform UI) or it is marked REJECTED and never filed. No network needed except fonts/GSAP CDNs.
 """
@@ -17,14 +20,24 @@ OUT = HERE / "out"
 W, H = 1920, 1080          # source frame the crop math assumes (scaled first if different)
 # Built for IG Reels + TikTok + YouTube Shorts at once: every word and face sits inside the union of their safe zones
 # (reel_qa.SAFE["all"]: top 220, bottom 440, right rail x>910 from y 800). Footage plays in this window only.
-WIN = (0, 440, 1080, 750)  # x, y, w, h on the 1080x1920 canvas: under the title bar, above the caption band
+# 10/6 content read: the 1080x750 letterbox under a title bar is gone. Footage fills the width on whoever is talking
+# in the 41_whowon window (the same footage, blurred, above and below it), the title is on frame 0, the clip runs
+# MAX_CLIP seconds or less to the scorecard where the exchange allows, and the piece ends on the whowon end card.
+WIN = (0, 330, 1080, 1260)  # x, y, w, h on the 1080x1920 canvas
 WIN_AR = WIN[2] / WIN[3]
+BAND = (60, 1266, 840, 176)  # caption band, the one capsync.py measures
+MAX_CLIP = 19.0            # seconds to the scorecard (11 of the 15 reference winners on 10/6 ran 6 to 19 s)
+MIN_CLIP = 7.0
+LEAD, TAIL = 0.12, 0.30    # air before the first word and after the last one of the kept window
+BEAT = 14 / 30             # the chain sound's beat (ARENA render-farm/audio/sfx_map.py): the ask lands 8 beats after the drop
+CTA = 3.5                  # the end card's hold (41_whowon cta_secs)
+CATS = [("logicalConsistency", "LOGIC"), ("factualAccuracy", "FACTS"), ("rhetoricalSkill", "RHETORIC"),
+        ("rebuttalQuality", "REBUTTAL"), ("fallacyAvoidance", "CLEAN PLAY")]
 BANNER = 110               # source rows hidden: the burned-in top strip (Jubilee's question + logo)
-FACE_FRAC = 0.34           # speaker face height / crop height (a chest-up single)
-FACE_Y = 0.40              # face centre sits this far down the crop (headroom above, chin clear of the band)
+FACE_FRAC = 0.25           # speaker face height / crop height (a chest-up single in the tall window)
+FACE_Y = 0.36              # face centre sits this far down the crop (headroom above, chin clear of the band)
 MIN_CROP_H = 420           # never zoom past this (source px), or the upscale goes soft
-FREEZE = 6.6
-CROPS_VERSION = 5          # bump when the reframing logic changes so cached crop plans are redone
+CROPS_VERSION = 6          # bump when the reframing logic changes so cached crop plans are redone
 # One-change hook experiment: REF_VARIANT=xwho renders the same clip with an open-loop hook into out/<key>-xwho/
 VARIANT = os.environ.get("REF_VARIANT", "")
 SUFFIX = f"-{VARIANT}" if VARIANT else ""
@@ -511,86 +524,206 @@ def aligned_words(job, spoken):
     mine = [(w, l["speaker"]) for l in job["lines"] for w in l["text"].split() if norm(w)]
     pairs = capsync.align_seq([norm(w) for w, _ in mine], [norm(w["w"]) for w in spoken])
     back = {j: i for i, j in pairs.items()}
-    out, spk = [], None
+    line_of = [k for k, l in enumerate(job["lines"]) for w in l["text"].split() if norm(w)]
+    out, spk, ln = [], None, 0
     for j, w in enumerate(spoken):
         if not norm(w["w"]):
             continue
         i = back.get(j)
         if i is not None:
-            spk = mine[i][1]
+            spk, ln = mine[i][1], line_of[i]
         elif spk is None:  # before the first matched word: whoever owns the next matched one
             spk = next((mine[back[k]][1] for k in range(j, len(spoken)) if k in back), job["lines"][0]["speaker"])
         text = mine[i][0] if i is not None and norm(mine[i][0]) == norm(w["w"]) else w["w"]
-        out.append({"t": w["t"] + job["start"], "e": w["e"] + job["start"], "w": text, "s": spk})
+        out.append({"t": w["t"] + job["start"], "e": w["e"] + job["start"], "w": text, "s": spk, "l": ln})
     return out
 
 
-def captions(job, dur, spoken):
-    t0 = job["start"]
+def frame(t):
+    """The first frame that shows an event set at t, rounded DOWN at 3 places (sfx_map.frame: 12.666, never 12.667)."""
+    import math
+    return math.floor(math.ceil(t * 30 - 1e-4) / 30 * 1e3 + 1e-6) / 1e3
+
+
+def kill_span(words, kill, lines=None):
+    """(first, last) index of the payoff: the kill phrase where it is said as a phrase; else the closest run of
+    spoken words (whisper hears "not going to be a part" where the transcript had "not be a part"); else, with
+    `lines`, every word of the transcript line that holds the phrase. None when it is not in these words."""
+    import difflib
     norm = lambda w: re.sub(r"[^a-z0-9']", "", w.lower())
-    words = [w for w in aligned_words(job, spoken) if norm(w["w"]) not in ("uh", "um", "") and 0 <= w["t"] - t0 < dur]
-    toks = [(w["t"] - t0, w["w"], w["s"]) for w in words]
-    ends = [w["e"] - t0 for w in words]
-    # the kill phrase is highlighted where it occurs as a phrase, not every time one of its words appears
-    kp = [norm(k) for k in job["kill_phrase"].split() if norm(k)]
-    kill_idx, punch = set(), 0
+    kp = [norm(k) for k in (kill or "").split() if norm(k)]
+    if not kp or not words:
+        return None
+    toks = [norm(w["w"]) for w in words]
     for i in range(len(toks) - len(kp) + 1):
-        if kp and [norm(toks[i + j][1]) for j in range(len(kp))] == kp:
-            kill_idx = set(range(i, i + len(kp))); punch = toks[i][0]
-            break
-    gold = gold_side(job)
+        if toks[i:i + len(kp)] == kp:
+            return i, i + len(kp) - 1
+    best = (0.0, None)
+    for n in (len(kp), len(kp) + 1, len(kp) + 2, len(kp) - 1):
+        for i in range(max(0, len(toks) - n + 1)):
+            if n < 2:
+                continue
+            r = difflib.SequenceMatcher(None, " ".join(toks[i:i + n]), " ".join(kp)).ratio()
+            if r > best[0]:
+                best = (r, (i, i + n - 1))
+    if best[0] >= 0.8:
+        return best[1]
+    if lines is not None:
+        flat = lambda t: " ".join(norm(w) for w in t.split() if norm(w))
+        ln = next((k for k, l in enumerate(lines) if " ".join(kp) in flat(l["text"])), None)
+        idx = [i for i, w in enumerate(words) if w.get("l") == ln]
+        if ln is not None and idx:
+            return idx[0], idx[-1]
+    return None
+
+
+def pick_window(words, kill, dur, limit=MAX_CLIP, lines=None):
+    """The stretch of the judged exchange that plays before the scorecard: (a, b) in the cut's own seconds.
+    It opens and ends on a finished sentence, holds the payoff line (the kill phrase) and both voices where it can,
+    and runs `limit` seconds or less where the exchange allows; an exchange already inside the limit plays whole.
+    Sentence edges come from the words as spoken (capsync times), never from YouTube caption times."""
+    if not words or dur <= limit:
+        return 0.0, dur, 0, len(words) - 1
+    # a sentence ends where the spoken word carries its full stop (whisper's or the transcript's punctuation); a
+    # speaker or line change alone is not an edge: words at a hand-over are often tagged to the wrong side
+    ends = [k for k, w in enumerate(words) if k == len(words) - 1 or re.search(r"[.?!][\"')\]]*$", w["w"])]
+    starts = [0] + [k + 1 for k in ends[:-1]]
+    ks = kill_span(words, kill, lines)
+    length = lambda i, j: (words[j]["e"] + TAIL) - max(0.0, words[i]["t"] - LEAD)
+    best = None
+    for i in starts:
+        for j in ends:
+            if j <= i:
+                continue
+            n = length(i, j)
+            has_kill = bool(ks and i <= ks[0] and ks[1] <= j)
+            both = len({w["s"] for w in words[i:j + 1]}) > 1
+            score = 100 * has_kill + 40 * both + min(n, 14.0)
+            if has_kill:
+                unit_end = next(e for e in ends if e >= ks[1])
+                nxt = next((e for e in ends if e > unit_end), None)
+                # best ending: the reply right after the payoff, when it is the other voice and short
+                if nxt == j and words[j]["s"] != words[ks[1]]["s"] and words[j]["e"] - words[unit_end]["e"] <= 3.5:
+                    score += 20
+                elif j == unit_end:
+                    score += 12
+                if words[i]["s"] != words[ks[0]]["s"]:
+                    score += 8     # the other side sets it up, then the payoff
+            if n > limit:
+                score -= 1000 + 10 * (n - limit)   # only when nothing fits: the shortest overrun that keeps the payoff
+            elif n < MIN_CLIP:
+                score -= 60
+            if best is None or score > best[0]:
+                best = (score, i, j)
+    _, i, j = best
+    # never into a neighbour's word: the cut sits in the gap when the next voice comes in at once
+    a = max(0.0, words[i]["t"] - LEAD, (words[i - 1]["e"] + 0.02) if i else 0.0)
+    b = min(dur, words[j]["e"] + TAIL, (words[j + 1]["t"] - 0.03) if j + 1 < len(words) else dur)
+    return min(a, words[i]["t"]), max(b, words[j]["e"]), i, j
+
+
+def trim_cut(cut, dst, a, b):
+    sh(["ffmpeg", "-v", "error", "-y", "-i", str(cut), "-ss", f"{a:.3f}", "-to", f"{b:.3f}", "-c:v", "libx264", "-crf", "15",
+        "-pix_fmt", "yuv420p", "-r", "30", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", str(dst)])
+    return float(sh(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=duration", "-of",
+                     "csv=p=0", str(dst)]).stdout.strip())
+
+
+def captions(job, dur, words):
+    """Captions in the measured band from the kept words (cut seconds): up to three words, on screen from the first
+    word's onset until the next caption or 0.35 s after the last word; the kill phrase is gold where it is said."""
+    norm = lambda w: re.sub(r"[^a-z0-9']", "", w.lower())
+    ws = [w for w in words if norm(w["w"]) not in ("uh", "um", "") and 0 <= w["t"] < dur]
+    ks = kill_span(ws, job["kill_phrase"])
+    kill_idx = set(range(ks[0], ks[1] + 1)) if ks else set()
     chunks, cur = [], []
-    for i, (t, w, s) in enumerate(toks):
+    for i, w in enumerate(ws):
         # words crammed together (crosstalk) stay in one caption up to 5 words rather than flashing 3 captions a second
-        crammed = cur and t - cur[0][0] < 0.25 and len(cur) < 5
-        if cur and not crammed and (len(cur) >= 3 or s != cur[-1][2] or t - cur[-1][0] > 0.9):
+        crammed = cur and w["t"] - cur[0][1]["t"] < 0.25 and len(cur) < 5
+        if cur and not crammed and (len(cur) >= 3 or w["s"] != cur[-1][1]["s"] or w["t"] - cur[-1][1]["t"] > 0.9
+                                    or re.search(r"[.?!]$", cur[-1][1]["w"])):
             chunks.append(cur); cur = []
-        cur.append((t, w, s, i))
+        cur.append((i, w))
     if cur:
         chunks.append(cur)
-    caps, tl, turns, last = [], [], [], None
+    caps, tl = [], []
+    end = max((w["e"] for w in ws), default=0)
     for n, ch in enumerate(chunks):
-        # on screen from its first word's onset until the next chunk, or 0.35 s after its last word ends
-        a = ch[0][0]
-        nxt = chunks[n + 1][0][0] if n + 1 < len(chunks) else dur
-        b = min(nxt, max(ends[ch[-1][3]] + 0.35, a + 0.3), a + 2.5)
-        side = ch[0][2].lower()
-        cls = "b" if side == gold else "a"  # css: .cap.b is gold
-        parts = [f"<b>{html.escape(w)}</b>" if i in kill_idx else html.escape(w) for _, w, _, i in ch]
-        caps.append(f'<div class="cap {cls}" id="c{n}"><span>{" ".join(parts)}</span></div>')
-        tl.append(f'["#c{n}", {a:.2f}, {b:.2f}]')
-        if side != last:
-            turns.append([round(a, 2), cls]); last = side
-    return caps, tl, turns, punch
+        a = ch[0][1]["t"]
+        nxt = chunks[n + 1][0][1]["t"] if n + 1 < len(chunks) else end + 0.5
+        if n == 0 and a < 0.35:      # the pill never sits empty on the first frames
+            a = 0.0
+        b = min(nxt, max(ch[-1][1]["e"] + 0.35, a + 0.3), a + 2.5)
+        if nxt - b < 0.8 and nxt - a <= 3.0:     # a short pause keeps the last words up: no empty pill between lines
+            b = nxt
+        b = min(b, dur - 0.02)                   # nothing of the clip stays up under the scorecard
+        if b <= a:
+            continue
+        text = " ".join(f"<b>{html.escape(w['w'])}</b>" if i in kill_idx else html.escape(w["w"]) for i, w in ch)
+        size = 84 if sum(len(w["w"]) + 1 for _, w in ch) <= 17 else 68
+        caps.append(f'<div class="cap" id="c{n}" style="font-size:{size}px"><span>{text}</span></div>')
+        tl.append(f'["#c{n}", {a:.3f}, {b:.3f}]')
+    return caps, tl
 
 
 def fit(text, big, small, limit):
     return big if len(text) <= limit else small
 
 
-def build(job, dur, d, spoken):
+def title_of(job):
+    """The promise in words, at full strength on frame 0. Base: "AI ref scored <who> <on what>"; the xwho arm asks
+    "<who> <on what>. Who won?" (41_whowon's title). `hook_topic` in job.json is a short hand-written "on ..." that is
+    literally true of the kept clip; without it the title is the matchup alone. -> (html, font px)"""
+    who = re.sub(r"\s+vs\.?\s+", " vs ", job["matchup"].strip())
+    who = who[:1].upper() + who[1:]
+    topic = (job.get("hook_topic") or "").strip().rstrip(".?!")
+    for tp in (topic, ""):
+        mid = f"{who} {tp}".strip()
+        plain = f"{mid}. Who won?" if VARIANT == "xwho" else f"AI ref scored {mid}"
+        if len(plain) <= 70 or not tp:
+            break
+    # a name never breaks across the two lines, and "Who won?" stays together
+    nb = lambda t: "&nbsp;".join(html.escape(w) for w in t.split())
+    sides = [nb(x) for x in who.split(" vs ")]
+    em = "<em>" + " vs ".join(sides) + "</em>" + (f" {html.escape(tp)}" if tp else "")
+    text = f"{em}. Who&nbsp;won?" if VARIANT == "xwho" else f"AI&nbsp;ref scored {em}"
+    return text, (54 if len(plain) <= 50 else 48 if len(plain) <= 60 else 42)
+
+
+def build(job, dur, d, words):
     v = verdict_bits(job)
-    caps, tl, turns, punch = captions(job, dur, spoken)
-    hook = f'AI ref scored <em>{html.escape(job["matchup"])}</em>'
-    if VARIANT == "xwho":
-        hook = f'Who won <em>{html.escape(job["matchup"])}</em>? AI ref decides'
-    total = round(dur + FREEZE, 2)
+    caps, tl = captions(job, dur, words)
+    f_card = frame(dur)
+    f_ask = frame(f_card + math_floor3(8 * BEAT))
+    total = round(f_ask + CTA, 2)
+    hook, hook_px = title_of(job)
+    sc = job["judge_response"]["judgment"]["scores"]
+    avg = job["judge_response"]["averageScores"]
+    side = {"A": ("participantA", job["a_name"]), "B": ("participantB", job["b_name"])}
+    cell = lambda s_: (f'<div class="p{" w" if s_ == v["win"] else ""}"><span>{html.escape(side[s_][1])}</span>'
+                       f'<div class="big">{avg[side[s_][0]]}</div></div>')
+    rows = "".join(
+        f'<div class="r"><span>{sc["participantA"][k]}</span><div class="t l"><s class="ref1-a" data-v="{sc["participantA"][k] / 100:.2f}"></s></div>'
+        f'<u>{lab}</u><div class="t rr"><s class="ref1-b" data-v="{sc["participantB"][k] / 100:.2f}"></s></div>'
+        f'<span class="n2">{sc["participantB"][k]}</span></div>' for k, lab in CATS)
     s = (HERE / "tpl/template.html").read_text()
-    rep = {"{{CAPS}}": "\n      ".join(caps), "{{CAPTL}}": ",\n        ".join(tl), "{{TURNS}}": json.dumps(turns),
-           "{{VIDEO_DUR}}": str(dur), "{{TOTAL}}": str(total), "{{FREEZE_DUR}}": str(FREEZE),
-           "{{HOOK_HTML}}": hook, "{{HOOK_PX}}": str(fit(job["matchup"] + (" who won? ai ref decides" if VARIANT == "xwho" else ""), 64, 50, 30)),
-           "{{A_TAG}}": html.escape((job["b_name"] if gold_side(job) == "a" else job["a_name"]).upper()),
-           "{{B_TAG}}": html.escape((job["a_name"] if gold_side(job) == "a" else job["b_name"]).upper()),
-           "{{WINNER}}": html.escape(v["w"]), "{{CALL_PX}}": str(fit(v["w"], 116, 92, 14)),
-           "{{W_NAME}}": html.escape(v["w"]), "{{L_NAME}}": html.escape(v["l"]),
-           "{{W_SCORE}}": str(v["ws"]), "{{L_SCORE}}": str(v["ls"]),
-           "{{W_S}}": str(v["ws"] / 100), "{{L_S}}": str(v["ls"] / 100), "{{QUOTE}}": html.escape(v["quote"]),
-           "{{PUNCH}}": f"{punch:.2f}", "{{BOOM}}": f"{max(punch, 0.1):.2f}", "{{V0}}": f"{dur + 0.1:.2f}"}
+    rep = {"{{CAPS}}": "\n      ".join(caps), "{{CAPTL}}": ",\n        ".join(tl),
+           "{{VIDEO_DUR}}": f"{dur:.3f}", "{{TOTAL}}": f"{total:.2f}", "{{TAIL_DUR}}": f"{total - dur:.3f}",
+           "{{F_CARD}}": f"{f_card:.3f}", "{{F_ASK}}": f"{f_ask:.3f}", "{{BED_DUR}}": f"{total - f_card:.3f}",
+           "{{BOOM_AT}}": f"{max(0.0, f_card - 0.012):.3f}", "{{CLICK_AT}}": f"{f_ask - 0.0015:.4f}",
+           "{{HOOK_HTML}}": hook, "{{HOOK_PX}}": str(hook_px), "{{MOTION}}": html.escape(job["motion"]),
+           "{{CELL_A}}": cell("A"), "{{CELL_B}}": cell("B"), "{{ROWS}}": rows,
+           "{{WINNER}}": html.escape(v["w"]), "{{CALL_PX}}": str(min(96, int(1640 / (len(v["w"]) + 5))))}
     for k, val in rep.items():
         s = s.replace(k, val)
     assert "{{" not in s, re.findall(r"{{\w+}}", s)
     (d / "index.html").write_text(s)
-    return v
+    return v, {"card": f_card, "ask": f_ask, "total": total, "title": html.unescape(re.sub(r"<[^>]+>", "", hook)).replace("\xa0", " ")}
+
+
+def math_floor3(x):
+    import math
+    return math.floor(x * 1e3 + 1e-6) / 1e3
 
 
 def post_txt(job, v):
@@ -630,15 +763,25 @@ def render(jobdir):
         shutil.copytree(HERE / "assets", p / "assets")
         for f in ("hyperframes.json", "package.json"):
             shutil.copy(HERE / "tpl" / f, p / f)
-        dur, nshots = cut_video(job, jobdir / "src.mp4", p / "assets/cut.mp4")
-        sh(["ffmpeg", "-v", "error", "-y", "-sseof", "-0.2", "-i", str(p / "assets/cut.mp4"), "-frames:v", "1", "-q:v", "2", str(p / "assets/freeze.jpg")])
-        spoken = spoken_words(job, p / "assets/cut.mp4")
+        full, nshots = cut_video(job, jobdir / "src.mp4", p / "full.mp4")
+        spoken = spoken_words(job, p / "full.mp4")
         (dst / "spoken.json").write_text(json.dumps(spoken))
-        v = build(job, dur, p, spoken)
-        # 2 Chrome workers, not "auto": renders run one at a time on this Mac and RAM is the ceiling
+        # every word in the cut's own seconds, with its speaker and line; then the stretch that plays before the card
+        words = [dict(w, t=w["t"] - job["start"], e=w["e"] - job["start"]) for w in aligned_words(job, spoken)]
+        a, b, i, j = pick_window(words, job["kill_phrase"], full, lines=job["lines"])
+        if a > 0.01 or b < full - 0.01:
+            dur = trim_cut(p / "full.mp4", p / "assets/cut.mp4", a, b)
+        else:
+            shutil.move(p / "full.mp4", p / "assets/cut.mp4")
+            dur = full
+        words = [dict(w, t=max(0.0, w["t"] - a), e=w["e"] - a) for w in words[i:j + 1]]
+        dur = math_floor3(int(dur * 30 + 1e-6) / 30)    # whole frames: the scorecard lands on the frame the clip ends
+        sh(["ffmpeg", "-v", "error", "-y", "-sseof", "-0.2", "-i", str(p / "assets/cut.mp4"), "-frames:v", "1", "-q:v", "2", str(p / "assets/freeze.jpg")])
+        v, marks = build(job, dur, p, words)
+        # 1 Chrome worker: with 2, HyperFrames 0.8.85 drops the bottom ~90 px of a <video> layer (the blurred plate)
         for attempt in range(4):  # under heavy load headless Chrome can time out just starting; that is not the clip's fault
             try:
-                sh([*HF, "render", "-o", str(p / "raw.mp4"), "--video-bitrate", "10M", "--workers", "2", "--quiet"], cwd=p, timeout=1800)
+                sh([*HF, "render", "-o", str(p / "raw.mp4"), "--video-bitrate", "10M", "--workers", "1", "--quiet"], cwd=p, timeout=1800)
                 break
             except RuntimeError as e:
                 if "Chrome cannot start" not in str(e) or attempt == 3:
@@ -646,7 +789,10 @@ def render(jobdir):
                 time.sleep(90)
         final = dst / f"{key}.mp4"
         finish(p / "raw.mp4", final)
-    (dst / f"{key}.layout.json").write_text(json.dumps({"window": list(WIN), "clip_end": dur, "captions": [60, 1266, 840, 176]}))
+    (dst / f"{key}.layout.json").write_text(json.dumps({"window": list(WIN), "clip_end": dur, "captions": list(BAND)}))
+    (dst / "cut.json").write_text(json.dumps({"exchange_s": full, "kept": [round(a, 2), round(b, 2)], "clip_s": dur, **marks,
+                                              "both_voices": len({w["s"] for w in words}) > 1,
+                                              "payoff_in": bool(kill_span(words, job["kill_phrase"], job["lines"]))}))
     (dst / "post.txt").write_text(post_txt(job, v))
     r = qa(final)
     (dst / "qa.json").write_text(json.dumps(r, indent=1))
@@ -656,7 +802,7 @@ def render(jobdir):
     # HyperFrames' extract cache grows ~100 MB per render; the Mac has no disk to spare
     for c in pathlib.Path(os.environ.get("TMPDIR", "/tmp")).glob("hyperframes-extract-cache-*"):
         shutil.rmtree(c, ignore_errors=True)
-    print(f"{key}: {dur}s, {nshots} crops, {v['w']} {v['ws']}–{v['ls']}, QA pass {r['stats']}", file=sys.stderr)
+    print(f"{key}: {dur}s of {full}s, {nshots} crops, {v['w']} {v['ws']}–{v['ls']}, QA pass {r['stats']}", file=sys.stderr)
 
 
 def claim_all():

@@ -3,131 +3,139 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=1080, height=1920" />
-    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@500;700;800;900&display=block" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@500;700;800;900&family=TikTok+Sans:wght@500;600;700;800&display=block" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body { width: 1080px; height: 1920px; overflow: hidden; background: #060810; }
-      #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: #060810; font-family: Inter, system-ui, sans-serif; }
-      /* Built once for IG Reels + TikTok + Shorts: everything that matters sits inside the union of their safe zones
-         (top 220, bottom 440, right button rail x>910 from y 800). Footage plays only in this 1080x750 window,
-         already reframed on the active speaker by render.py; the bottom 440 px stay empty for the apps' own UI. */
-      #cam { position: absolute; left: 0; top: 440px; width: 1080px; height: 750px; overflow: hidden; }
-      #zoom { position: absolute; left: 0; top: 0; width: 1080px; height: 750px; }
-      #clip, #freeze { position: absolute; left: 0; top: 0; width: 1080px; height: 750px; object-fit: cover; }
-      #lower { position: absolute; left: 0; top: 1190px; width: 1080px; height: 730px; background: #060810; }
-      #dim { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; background: rgba(6, 8, 16, 0.74); opacity: 0; }
+      #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: #060810; font-family: Inter, system-ui, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+      /* 10/6 content read: the 41_whowon frame. Footage fills the width on whoever is talking (already reframed by
+         render.py), the same footage blurred sits above and below it, the title is at full strength on frame 0,
+         and the piece ends on the REF's scorecard and the "Get your own argument scored" card with real app screens. */
+      #plate, #fplate { position: absolute; left: -60px; top: -100px; width: 1200px; height: 2120px; object-fit: cover; filter: blur(26px) brightness(1.0) saturate(1.15); }
+      #fplate { filter: blur(30px) brightness(1.45) saturate(1.2); }
+      #cam { position: absolute; left: 0; top: 330px; width: 1080px; height: 1260px; overflow: hidden; box-shadow: 0 0 60px rgba(0,0,0,0.35); }
+      #zoom { position: absolute; left: 0; top: 0; width: 1080px; height: 1260px; }
+      #cam video, #cam img { position: absolute; left: 0; top: 0; width: 1080px; height: 1260px; object-fit: cover; }
+      /* a caption pill exactly over the band the sync gate reads (y 1266-1442 must stay dark under the words) */
+      #scrim { position: absolute; left: 44px; top: 1250px; width: 872px; height: 208px; border-radius: 30px; background: rgba(6,8,16,0.9); }
+      #title { position: absolute; left: 60px; top: 222px; width: 840px; height: 100px; display: flex; align-items: center; justify-content: center; }
+      #title span { display: inline-block; font-family: "TikTok Sans", Inter, sans-serif; font-weight: 800; font-size: 54px; line-height: 1.1; color: #fff; text-align: center; text-wrap: balance; background: rgba(6,8,16,0.82); padding: 14px 26px 16px; border-radius: 22px; }
+      #title em { font-style: normal; color: #FFD60A; }
+      .cap { position: absolute; left: 60px; top: 1266px; width: 840px; height: 176px; display: flex; align-items: center; justify-content: center; font-family: Anton, sans-serif; font-size: 84px; line-height: 1; text-transform: uppercase; color: #fff; -webkit-text-stroke: 6px #000; paint-order: stroke fill; text-shadow: 0 6px 0 rgba(0,0,0,0.55); opacity: 0; text-align: center; white-space: nowrap; }
+      .cap b { color: #FFD60A; font-weight: 400; }
+      /* the verdict lands over the footage itself: a light shade and a blur, not a black screen */
+      #dim { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; background: rgba(6,8,16,0.1); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); opacity: 0; }
 
-      /* DebateTV title bar (covers the source's top overlay band) */
-      #bar { position: absolute; left: 0; top: 0; width: 1080px; height: 452px; background: linear-gradient(#060810 97%, rgba(6,8,16,0)); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 12px; padding-top: 232px; }
-      #brand { opacity: 0; display: flex; align-items: center; gap: 12px; font-family: Anton, sans-serif; font-size: 34px; letter-spacing: 0.04em; color: #fff; }
-      #brand img { width: 44px; height: 44px; border-radius: 10px; display: block; }
-      #brand span { color: #FF2D2D; }
-      #hook { font-family: Anton, sans-serif; font-size: 64px; line-height: 1.02; text-transform: uppercase; color: #fff; text-align: center; width: 960px; }
-      #hook em { font-style: normal; color: #FFD700; }
+      /* the REF's call, drawn the way the app's verdict screen draws it */
+      .ref { position: absolute; left: 100px; top: 380px; width: 800px; padding: 30px 38px 28px; background: #0B0E17; border: 2px solid #2B3042; border-radius: 40px; box-shadow: 0 30px 90px rgba(0,0,0,0.75); opacity: 0; }
+      .ref .hd { display: flex; align-items: center; gap: 14px; font-weight: 800; font-size: 24px; letter-spacing: 0.26em; color: #8E93A6; }
+      .ref .hd img { width: 52px; height: 52px; border-radius: 12px; display: block; }
+      .ref .q { margin-top: 16px; font-weight: 500; font-size: 34px; line-height: 1.25; color: #D5D8E3; }
+      .ref .who { margin-top: 26px; display: flex; align-items: flex-start; justify-content: space-between; }
+      .ref .p { width: 310px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+      .ref .p span { height: 84px; display: flex; align-items: flex-end; justify-content: center; font-family: Anton, sans-serif; font-size: 38px; line-height: 1.05; text-transform: uppercase; color: #fff; text-align: center; }
+      .ref .big { width: 310px; text-align: center; font-family: Anton, sans-serif; font-size: 170px; line-height: 1; color: #fff; }
+      .ref .p.w .big { color: #FFD60A; }
+      .ref .vs { padding-top: 150px; font-weight: 900; font-size: 30px; color: #5B6072; letter-spacing: 0.1em; }
+      .ref .call { margin-top: 14px; font-family: Anton, sans-serif; font-size: 96px; line-height: 1; color: #FFD60A; text-transform: uppercase; text-align: center; white-space: nowrap; }
+      .ref .rows { margin-top: 22px; border-top: 1px solid #232735; padding-top: 14px; }
+      .ref .r { display: grid; grid-template-columns: 76px 1fr 200px 1fr 76px; align-items: center; column-gap: 10px; height: 62px; font-weight: 800; font-size: 37px; color: #fff; }
+      .ref .r u { text-decoration: none; font-weight: 700; font-size: 23px; letter-spacing: 0.2em; color: #7C8196; text-align: center; }
+      .ref .r .n2 { text-align: right; }
+      .ref .t { position: relative; height: 18px; border-radius: 9px; background: #171B28; overflow: hidden; }
+      .ref .t s { position: absolute; top: 0; height: 18px; width: 100%; border-radius: 9px; }
+      .ref .t.l s { right: 0; background: #E5141E; transform-origin: right center; }
+      .ref .t.rr s { left: 0; background: #2997FF; transform-origin: left center; }
 
-      .tag { position: absolute; left: 60px; top: 1206px; display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: 30px; letter-spacing: 0.06em; color: #fff; opacity: 0; }
-      .tag i { width: 16px; height: 16px; border-radius: 8px; display: block; }
-      .tag span { background: rgba(6,8,16,0.82); padding: 10px 18px; border-radius: 10px; }
-      #tag-a i { background: #2997FF; }
-      #tag-b i { background: #FFD700; }
-
-      .cap { position: absolute; left: 60px; top: 1266px; width: 840px; height: 176px; display: flex; align-items: center; justify-content: center; font-family: Anton, sans-serif; font-size: 84px; line-height: 1; text-transform: uppercase; color: #fff; -webkit-text-stroke: 6px #000; paint-order: stroke fill; text-shadow: 0 6px 0 rgba(0,0,0,0.55); opacity: 0; text-align: center; }
-      .cap.b { color: #FFD700; }
-      .cap b { color: #FF3B30; font-weight: 400; }
-
-      #verdict { position: absolute; left: 60px; top: 452px; width: 840px; padding: 40px 44px 38px; background: #0A0C14; border: 2px solid #272729; border-radius: 36px; box-shadow: 0 30px 90px rgba(0,0,0,0.7); opacity: 0; }
-      .ref { display: inline-block; background: #2997FF; color: #fff; font-weight: 900; font-size: 28px; letter-spacing: 0.12em; padding: 10px 20px; border-radius: 10px; }
-      .call { margin-top: 22px; font-family: Anton, sans-serif; font-size: 116px; line-height: 0.98; color: #FFD700; text-transform: uppercase; }
-      .row { margin-top: 28px; display: flex; align-items: center; gap: 20px; font-weight: 800; font-size: 34px; color: #F4F4F5; }
-      .row .name { width: 250px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-      .meter { position: relative; flex: 1; height: 32px; border-radius: 16px; background: #161820; overflow: hidden; }
-      .fill { position: absolute; left: 0; top: 0; height: 32px; width: 100%; border-radius: 16px; transform-origin: left center; }
-      #fb { background: #FFD700; }
-      #fd { background: #52525B; }
-      .row .num { width: 84px; text-align: right; font-family: Anton, sans-serif; font-size: 58px; }
-      #why { margin-top: 28px; padding-top: 24px; border-top: 1px solid #272729; font-weight: 500; font-size: 32px; line-height: 1.38; color: #D4D4D8; opacity: 0; }
-      #foot { margin-top: 26px; display: flex; align-items: center; gap: 12px; font-family: Anton, sans-serif; font-size: 30px; letter-spacing: 0.04em; color: #A1A1AA; }
-      #foot img { width: 36px; height: 36px; border-radius: 8px; display: block; }
-      #foot span { color: #FF2D2D; }
-      #bait { position: absolute; left: 60px; top: 1340px; width: 840px; display: flex; justify-content: center; opacity: 0; }
-      #bait span { font-weight: 900; font-size: 50px; color: #060810; background: #FFD700; padding: 18px 36px; border-radius: 22px; }
+      /* end card: same job as Umax's "get your own ratings" card; the blurred footage stays behind it */
+      #cta { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; background: rgba(6,8,16,0.28); -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px); opacity: 0; }
+      #cta h2 { position: absolute; left: 60px; top: 236px; width: 960px; font-family: Anton, sans-serif; font-weight: 400; font-size: 112px; line-height: 1.0; text-transform: uppercase; color: #fff; text-align: center; text-shadow: 0 6px 30px rgba(0,0,0,0.6); }
+      #cta h2 em { font-style: normal; color: #FFD60A; white-space: nowrap; }
+      #cta .shots { position: absolute; left: 80px; top: 500px; width: 840px; height: 800px; }
+      #cta .shots img { position: absolute; width: 420px; border-radius: 36px; border: 5px solid #2B3042; box-shadow: 0 24px 70px rgba(0,0,0,0.7); display: block; }
+      #cta .find { position: absolute; left: 60px; top: 1296px; width: 840px; display: flex; align-items: center; justify-content: center; gap: 24px; }
+      #cta .find > img { width: 170px; height: 170px; border-radius: 38px; display: block; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
+      #cta .find .nm { font-weight: 900; font-size: 64px; text-shadow: 0 3px 14px rgba(0,0,0,0.7); line-height: 1.05; color: #fff; }
+      #cta .badge { margin-top: 12px; display: inline-flex; align-items: center; gap: 12px; background: #000; border: 2px solid #A6A6A6; border-radius: 16px; padding: 8px 20px 9px 16px; }
+      #cta .badge i { font-style: normal; font-family: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif; font-size: 50px; line-height: 1; color: #fff; margin-top: -6px; }
+      #cta .badge span { display: block; font-family: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif; font-weight: 500; font-size: 19px; line-height: 1.1; color: #fff; }
+      #cta .badge span b { display: block; font-weight: 600; font-size: 36px; letter-spacing: -0.01em; }
+      #cta .arrow { position: absolute; left: 20px; top: 1318px; width: 120px; height: 110px; }
     </style>
   </head>
   <body>
     <div id="root" data-composition-id="main" data-start="0" data-duration="{{TOTAL}}" data-width="1080" data-height="1920">
+      <video id="plate" src="assets/cut.mp4" data-start="0" data-duration="{{VIDEO_DUR}}" data-track-index="5" muted playsinline></video>
+      <img id="fplate" src="assets/freeze.jpg" data-start="{{VIDEO_DUR}}" data-duration="{{TAIL_DUR}}" data-track-index="6" alt="" />
       <div id="cam"><div id="zoom">
-        <video id="clip" class="clip" src="assets/cut.mp4" data-start="0" data-duration="{{VIDEO_DUR}}" data-track-index="0" muted playsinline></video>
-        <img id="freeze" class="clip" src="assets/freeze.jpg" data-start="{{VIDEO_DUR}}" data-duration="{{FREEZE_DUR}}" data-track-index="1" alt="" />
+        <video id="clip" src="assets/cut.mp4" data-start="0" data-duration="{{VIDEO_DUR}}" data-track-index="0" muted playsinline></video>
+        <img id="freeze" src="assets/freeze.jpg" data-start="{{VIDEO_DUR}}" data-duration="{{TAIL_DUR}}" data-track-index="1" alt="" />
       </div></div>
-      <div id="lower"></div>
-      <div id="dim"></div>
-
-      <div id="bar">
-        <div id="brand"><img src="assets/dtv-icon.png" alt="" />DEBATE<span>TV</span></div>
-        <div id="hook" style="font-size:{{HOOK_PX}}px">{{HOOK_HTML}}</div>
-      </div>
-
-      <div class="tag" id="tag-a"><i></i><span>{{A_TAG}}</span></div>
-      <div class="tag" id="tag-b"><i></i><span>{{B_TAG}}</span></div>
+      <div id="scrim"></div>
+      <div id="title"><span style="font-size:{{HOOK_PX}}px">{{HOOK_HTML}}</span></div>
 
       {{CAPS}}
 
-      <div id="verdict">
-        <span class="ref">AI REF · FINAL CALL</span>
+      <div id="dim"></div>
+      <div class="ref" id="ref1">
+        <div class="hd"><img src="assets/dtv-icon.png" alt="" />THE VERDICT · AI REF</div>
+        <div class="q">“{{MOTION}}”</div>
+        <div class="who">{{CELL_A}}<div class="vs">VS</div>{{CELL_B}}</div>
         <div class="call" style="font-size:{{CALL_PX}}px">{{WINNER}} wins</div>
-        <div class="row"><span class="name">{{W_NAME}}</span><div class="meter"><div class="fill" id="fb"></div></div><span class="num">{{W_SCORE}}</span></div>
-        <div class="row"><span class="name">{{L_NAME}}</span><div class="meter"><div class="fill" id="fd"></div></div><span class="num">{{L_SCORE}}</span></div>
-        <div id="why">{{QUOTE}}</div>
-        <div id="foot"><img src="assets/dtv-icon.png" alt="" />JUDGED ON DEBATE<span>TV</span></div>
+        <div class="rows">{{ROWS}}</div>
       </div>
-      <div id="bait"><span>was the AI right? 👇</span></div>
+
+      <div id="cta">
+        <h2>Get your own<br /><em>argument scored</em></h2>
+        <div class="shots">
+          <img src="assets/shot1.png" alt="" style="left: 16px; top: 36px; transform: rotate(-5deg);" />
+          <img src="assets/shot2.png" alt="" style="left: 424px; top: 0px; transform: rotate(4deg);" />
+        </div>
+        <svg class="arrow" viewBox="0 0 120 110"><path d="M10 14 C 14 70, 48 92, 96 84" fill="none" stroke="#FFD60A" stroke-width="10" stroke-linecap="round"/><path d="M74 60 L100 84 L70 104" fill="none" stroke="#FFD60A" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="find"><img src="assets/dtv-icon.png" alt="" /><div><div class="nm">DebateTV</div>
+          <div class="badge"><i>&#xF8FF;</i><span>Download on the<b>App Store</b></span></div></div></div>
+      </div>
 
       <audio id="voice" src="assets/cut.mp4" data-start="0" data-duration="{{VIDEO_DUR}}" data-track-index="10" data-volume="1"></audio>
-      <audio id="boom" src="assets/vineboom.mp3" data-start="{{V0}}" data-duration="1.25" data-track-index="11" data-volume="0.8"></audio>
-      <audio id="pop" src="assets/card-pop.wav" data-start="{{BOOM}}" data-duration="0.1" data-track-index="12" data-volume="0.7"></audio>
+      <!-- sound map 2 (ARENA render-farm/audio/sfx_map.py): the chain's sound from its drop on the scorecard's first
+           frame, a boom whose attack is on that frame, a click whose attack is on the ask's first frame -->
+      <audio id="bed" src="assets/chain-drop.m4a" data-start="{{F_CARD}}" data-duration="{{BED_DUR}}" data-track-index="14" data-volume="1"></audio>
+      <audio id="fx0_boom" src="assets/fx-boom.wav" data-start="{{BOOM_AT}}" data-duration="1.176" data-track-index="20" data-volume="1"></audio>
+      <audio id="fx1_click" src="assets/fx-click.wav" data-start="{{CLICK_AT}}" data-duration="0.1" data-track-index="21" data-volume="1"></audio>
     </div>
     <script>
+      window.__timelines = window.__timelines || {};
       const tl = gsap.timeline({ paused: true });
-      const V = {{VIDEO_DUR}};
-      tl.fromTo("#hook", { scale: 1.08, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: 0.25, ease: "back.out(2)" }, 0.05);
-
+      const V = {{VIDEO_DUR}}, CARD = {{F_CARD}}, ASK = {{F_ASK}};
       const caps = [
         {{CAPTL}}
       ];
+      // frame one is the post's cover: the title is already at full strength (no tween touches it) and the caption
+      // pill never sits empty: words that start within 0.25 s are on it, a later first word brings the pill in
+      if (caps.length && caps[0][1] < 0.25) caps[0][1] = 0;
+      else if (caps.length) { tl.set("#scrim", { autoAlpha: 0 }, 0); tl.set("#scrim", { autoAlpha: 1 }, caps[0][1]); }
       caps.forEach(([id, a, b]) => {
-        // the pop must finish before the hide, or the tween re-shows the caption after it and it never leaves
-        tl.fromTo(id, { scale: 0.86, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: Math.min(0.08, (b - a) / 2), ease: "power2.out" }, a);
+        if (a < 0.01) tl.set(id, { scale: 1, autoAlpha: 1 }, 0);
+        else tl.fromTo(id, { scale: 0.9, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: Math.min(0.07, (b - a) / 2), ease: "power2.out" }, a);
         tl.set(id, { autoAlpha: 0 }, b);
       });
+      tl.fromTo("#zoom", { scale: 1 }, { scale: 1.02, duration: V, ease: "none", transformOrigin: "50% 36%" }, 0);
 
-      // speaker tag follows whoever is talking
-      const turns = {{TURNS}};
-      turns.forEach(([t, s], i) => {
-        const other = s === "b" ? "#tag-a" : "#tag-b";
-        tl.set(other, { autoAlpha: 0 }, t);
-        tl.fromTo("#tag-" + s, { autoAlpha: 0, x: -20 }, { autoAlpha: 1, x: 0, duration: 0.15 }, t);
+      // the scorecard lands at full size on its first frame (a 2 frame settle, never a fade), bars fill
+      tl.set(["#title", "#scrim"], { autoAlpha: 0 }, CARD);
+      tl.set("#dim", { opacity: 1 }, CARD);
+      tl.set("#ref1", { autoAlpha: 1 }, CARD);
+      tl.fromTo("#ref1", { scale: 1.035 }, { scale: 1, duration: 0.18, ease: "power3.out" }, CARD);
+      document.querySelectorAll(".ref1-a, .ref1-b").forEach((el) => {
+        tl.fromTo(el, { scaleX: parseFloat(el.dataset.v) * 0.55 }, { scaleX: parseFloat(el.dataset.v), duration: 0.4, ease: "power3.out" }, CARD);
       });
-
-      // slow push, then the punch-in on "murder should be left up to the state"
-      const P = {{PUNCH}};
-      if (P > 0.5) {
-        // zoom the footage inside its window, about the speaker's face (render.py puts it at 40% height)
-        tl.fromTo("#zoom", { scale: 1 }, { scale: 1.04, duration: P - 0.2, ease: "none", transformOrigin: "50% 40%" }, 0);
-        tl.to("#zoom", { scale: 1.18, duration: 0.2, ease: "power3.out", transformOrigin: "50% 40%" }, P - 0.1);
-        tl.to("#zoom", { scale: 1.02, duration: 0.5, ease: "power2.inOut", transformOrigin: "50% 40%" }, P + 1.6);
-      }
-
-      // verdict
-      tl.to([".tag", "#hook"], { autoAlpha: 0, duration: 0.2 }, V - 0.05);
-      tl.to("#dim", { opacity: 1, duration: 0.3 }, V);
-      tl.fromTo("#verdict", { y: 160, autoAlpha: 0, scale: 0.94 }, { y: 0, autoAlpha: 1, scale: 1, duration: 0.35, ease: "back.out(1.6)" }, V + 0.1);
-      tl.fromTo("#fb", { scaleX: 0 }, { scaleX: {{W_S}}, duration: 0.8, ease: "power3.out" }, V + 0.45);
-      tl.fromTo("#fd", { scaleX: 0 }, { scaleX: {{L_S}}, duration: 0.8, ease: "power3.out" }, V + 0.45);
-      tl.fromTo("#why", { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 0.35 }, V + 1.2);
-      tl.fromTo("#bait", { autoAlpha: 0, y: 30 }, { autoAlpha: 1, y: 0, duration: 0.3, ease: "back.out(2)" }, V + 2.8);
-      // brand lands after the first second (virality-loop hard fail: logo in 0-1s)
-      tl.fromTo("#brand", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3, ease: "power2.out" }, 1.2);
+      // the ask: 8 beats of the sound after the drop, where the reference cuts
+      tl.set("#ref1", { autoAlpha: 0 }, ASK);
+      tl.set("#cta", { autoAlpha: 1 }, ASK);
+      tl.fromTo("#cta h2", { scale: 1.06 }, { scale: 1, duration: 0.2, ease: "power3.out" }, ASK);
+      tl.fromTo("#cta .shots img", { y: 60 }, { y: 0, duration: 0.35, ease: "back.out(1.6)", stagger: 0.08 }, ASK);
+      tl.to({}, { duration: 0.01 }, {{TOTAL}} - 0.01);
       window.__timelines["main"] = tl;
     </script>
   </body>
