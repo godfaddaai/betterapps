@@ -683,7 +683,8 @@ def title_of(job):
         if len(plain) <= 80 or not tp:
             break
     # a name never breaks across the two lines, and "Who won?" stays together
-    nb = lambda t: f'<span style="white-space:nowrap">{html.escape(t)}</span>'   # also holds a hyphenated name together
+    # <u>, not <span>: the pill is styled by "#title > span" and a nested span must not become a pill of its own
+    nb = lambda t: f'<u>{html.escape(t)}</u>'   # nowrap: also holds a hyphenated name together
     sides = [nb(x) for x in who.split(" vs ")]
     em = "<em>" + " vs ".join(sides) + "</em>" + (f" {html.escape(tp)}" if tp else "")
     text = f"{em}. Who&nbsp;won?" if VARIANT == "xwho" else f"AI&nbsp;ref scored {em}"
