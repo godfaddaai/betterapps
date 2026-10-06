@@ -35,7 +35,7 @@ BEAT = 14 / 30             # the chain sound's beat (ARENA render-farm/audio/sfx
 ASK_FRAMES = 110           # scorecard to ask: the Umax reel's own cut after its reveal (beat 8, 17 ms after the bass hit)
 REVEAL_LEAD = 0.075        # the chain sound starts this long before the scorecard's first frame: its hit leads the
                            # frame by 55 ms as in the Umax reel, and the bass takes 20 ms to rise
-PAYOFF_SNAP = 0.55         # a payoff that ends this close to the scorecard keeps its boom on the scorecard
+PAYOFF_SNAP = 0.55         # a payoff that ends this close to the scorecard gets no boom: the drop is the hit
 CTA = 3.5                  # the end card's hold (41_whowon cta_secs)
 CATS = [("logicalConsistency", "LOGIC"), ("factualAccuracy", "FACTS"), ("rhetoricalSkill", "RHETORIC"),
         ("rebuttalQuality", "REBUTTAL"), ("fallacyAvoidance", "CLEAN PLAY")]
@@ -704,15 +704,14 @@ def build(job, dur, d, words):
     f_ask = frame(f_card + math_floor3(ASK_FRAMES / 30))
     total = round(f_ask + CTA, 2)
     # one boom a piece: on the end of the payoff's last word (the gold words), where the "Who won the argument?"
-    # reference has it; the scorecard then lands on the sound's drop alone. No payoff in the cut, or one that ends on
-    # the scorecard: the boom stays on the scorecard's first frame.
+    # reference has it. The scorecard always lands on the sound's drop alone, as the Umax reveal does: with no payoff
+    # in the cut, or one that ends on the scorecard, there is no boom (it would land 75 ms after the bass attack).
     said = [w for w in words if re.sub(r"[^a-z0-9']", "", w["w"].lower()) not in ("uh", "um", "") and 0 <= w["t"] < dur]
     ks = kill_span(said, job["kill_phrase"])
     k_end = said[ks[1]]["e"] if ks else None
     pay = frame(k_end) if k_end is not None and dur - k_end >= PAYOFF_SNAP else None
-    f_boom = pay if pay is not None else f_card
     bed_at = max(0.0, f_card - REVEAL_LEAD)
-    boom_src, boom_dur = "fx-boom.wav", 1.176
+    boom_tag = ""
     if pay is not None:
         # the payoff boom's tail is faded out by the frame the chain sound starts: the boom and the drop never ring together
         boom_src, boom_dur = "fx-payoff.wav", min(1.176, math_floor3(bed_at - (pay - 0.012)))
@@ -720,6 +719,8 @@ def build(job, dur, d, words):
             sh(["ffmpeg", "-v", "error", "-y", "-i", str(d / "assets/fx-payoff.wav"), "-t", f"{boom_dur:.3f}", "-af",
                 f"afade=t=out:st={boom_dur - 0.08:.3f}:d=0.08", str(d / "assets/fx-pay.wav")])
             boom_src = "fx-pay.wav"
+        boom_tag = (f'<audio id="fx0_boom" src="assets/{boom_src}" data-start="{max(0.0, pay - 0.012):.3f}" '
+                    f'data-duration="{boom_dur:.3f}" data-track-index="20" data-volume="1"></audio>')
     hook, hook_px = title_of(job)
     sc = job["judge_response"]["judgment"]["scores"]
     avg = job["judge_response"]["averageScores"]
@@ -736,8 +737,7 @@ def build(job, dur, d, words):
            "{{VIDEO_DUR}}": f"{dur:.3f}", "{{TOTAL}}": f"{total:.2f}", "{{TAIL_DUR}}": f"{total - dur:.3f}",
            "{{F_CARD}}": f"{f_card:.3f}", "{{F_ASK}}": f"{f_ask:.3f}",
            "{{BED_AT}}": f"{bed_at:.3f}", "{{BED_DUR}}": f"{total - bed_at:.3f}",
-           "{{BOOM_SRC}}": boom_src, "{{BOOM_DUR}}": f"{boom_dur:.3f}",
-           "{{BOOM_AT}}": f"{max(0.0, f_boom - 0.012):.3f}", "{{CLICK_AT}}": f"{f_ask - 0.0015:.4f}",
+           "{{BOOM_TAG}}": boom_tag, "{{CLICK_AT}}": f"{f_ask - 0.0015:.4f}",
            "{{HOOK_HTML}}": hook, "{{HOOK_PX}}": str(hook_px), "{{MOTION}}": html.escape(job["motion"]),
            "{{CELL_A}}": cell("A"), "{{CELL_B}}": cell("B"), "{{ROWS}}": rows,
            "{{CALL}}": "Too close to call" if tie else f'{html.escape(v["w"])} wins',
@@ -746,7 +746,7 @@ def build(job, dur, d, words):
         s = s.replace(k, val)
     assert "{{" not in s, re.findall(r"{{\w+}}", s)
     (d / "index.html").write_text(s)
-    return v, {"card": f_card, "ask": f_ask, "boom": f_boom, "boom_on": "payoff" if pay is not None else "scorecard",
+    return v, {"card": f_card, "ask": f_ask, "boom": pay, "boom_on": "payoff" if pay is not None else "none",
                "bed": bed_at, "total": total, "title": html.unescape(re.sub(r"<[^>]+>", "", hook)).replace("\xa0", " ")}
 
 
