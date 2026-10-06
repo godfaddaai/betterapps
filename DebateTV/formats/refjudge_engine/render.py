@@ -700,7 +700,8 @@ def build(job, dur, d, words):
     sc = job["judge_response"]["judgment"]["scores"]
     avg = job["judge_response"]["averageScores"]
     side = {"A": ("participantA", job["a_name"]), "B": ("participantB", job["b_name"])}
-    cell = lambda s_: (f'<div class="p{" w" if s_ == v["win"] else ""}"><span>{html.escape(side[s_][1])}</span>'
+    tie = v["ws"] == v["ls"]    # equal averages: the card says so and crowns nobody (10/6 review: 58 to 58 "wins")
+    cell = lambda s_: (f'<div class="p{" w" if s_ == v["win"] and not tie else ""}"><span>{html.escape(side[s_][1])}</span>'
                        f'<div class="big">{avg[side[s_][0]]}</div></div>')
     rows = "".join(
         f'<div class="r"><span>{sc["participantA"][k]}</span><div class="t l"><s class="ref1-a" data-v="{sc["participantA"][k] / 100:.2f}"></s></div>'
@@ -713,7 +714,8 @@ def build(job, dur, d, words):
            "{{BOOM_AT}}": f"{max(0.0, f_card - 0.012):.3f}", "{{CLICK_AT}}": f"{f_ask - 0.0015:.4f}",
            "{{HOOK_HTML}}": hook, "{{HOOK_PX}}": str(hook_px), "{{MOTION}}": html.escape(job["motion"]),
            "{{CELL_A}}": cell("A"), "{{CELL_B}}": cell("B"), "{{ROWS}}": rows,
-           "{{WINNER}}": html.escape(v["w"]), "{{CALL_PX}}": str(min(96, int(1640 / (len(v["w"]) + 5))))}
+           "{{CALL}}": "Too close to call" if tie else f'{html.escape(v["w"])} wins',
+           "{{CALL_PX}}": str(min(96, int(1640 / (len("Too close to call" if tie else v["w"] + " wins") + 0))))}
     for k, val in rep.items():
         s = s.replace(k, val)
     assert "{{" not in s, re.findall(r"{{\w+}}", s)
@@ -769,12 +771,18 @@ def render(jobdir):
         # every word in the cut's own seconds, with its speaker and line; then the stretch that plays before the card
         words = [dict(w, t=w["t"] - job["start"], e=w["e"] - job["start"]) for w in aligned_words(job, spoken)]
         a, b, i, j = pick_window(words, job["kill_phrase"], full, lines=job["lines"])
+        lines = job["lines"]
         if a > 0.01 or b < full - 0.01:
             dur = trim_cut(p / "full.mp4", p / "assets/cut.mp4", a, b)
+            # caption times come from the audio that plays: the gate transcribes the short cut, and on crosstalk
+            # whisper hears a short cut differently from the long one (10/6: 2 of 14 renders drifted 165 to 247 ms)
+            lines = job["lines"][min(w["l"] for w in words[i:j + 1]):max(w["l"] for w in words[i:j + 1]) + 1]
+            heard = aligned_words(dict(job, lines=lines), spoken_words(job, p / "assets/cut.mp4"))
+            words = [dict(w, t=max(0.0, w["t"] - job["start"]), e=w["e"] - job["start"]) for w in heard]
         else:
             shutil.move(p / "full.mp4", p / "assets/cut.mp4")
             dur = full
-        words = [dict(w, t=max(0.0, w["t"] - a), e=w["e"] - a) for w in words[i:j + 1]]
+            words = [dict(w, t=max(0.0, w["t"] - a), e=w["e"] - a) for w in words[i:j + 1]]
         dur = math_floor3(int(dur * 30 + 1e-6) / 30)    # whole frames: the scorecard lands on the frame the clip ends
         sh(["ffmpeg", "-v", "error", "-y", "-sseof", "-0.2", "-i", str(p / "assets/cut.mp4"), "-frames:v", "1", "-q:v", "2", str(p / "assets/freeze.jpg")])
         v, marks = build(job, dur, p, words)
@@ -792,7 +800,7 @@ def render(jobdir):
     (dst / f"{key}.layout.json").write_text(json.dumps({"window": list(WIN), "clip_end": dur, "captions": list(BAND)}))
     (dst / "cut.json").write_text(json.dumps({"exchange_s": full, "kept": [round(a, 2), round(b, 2)], "clip_s": dur, **marks,
                                               "both_voices": len({w["s"] for w in words}) > 1,
-                                              "payoff_in": bool(kill_span(words, job["kill_phrase"], job["lines"]))}))
+                                              "payoff_in": bool(kill_span(words, job["kill_phrase"], lines))}))
     (dst / "post.txt").write_text(post_txt(job, v))
     r = qa(final)
     (dst / "qa.json").write_text(json.dumps(r, indent=1))

@@ -83,7 +83,7 @@
         <div class="hd"><img src="assets/dtv-icon.png" alt="" />THE VERDICT · AI REF</div>
         <div class="q">“{{MOTION}}”</div>
         <div class="who">{{CELL_A}}<div class="vs">VS</div>{{CELL_B}}</div>
-        <div class="call" style="font-size:{{CALL_PX}}px">{{WINNER}} wins</div>
+        <div class="call" style="font-size:{{CALL_PX}}px">{{CALL}}</div>
         <div class="rows">{{ROWS}}</div>
       </div>
 
@@ -116,10 +116,13 @@
       // pill never sits empty: words that start within 0.25 s are on it, a later first word brings the pill in
       if (caps.length && caps[0][1] < 0.25) caps[0][1] = 0;
       else if (caps.length) { tl.set("#scrim", { autoAlpha: 0 }, 0); tl.set("#scrim", { autoAlpha: 1 }, caps[0][1]); }
-      caps.forEach(([id, a, b]) => {
+      caps.forEach(([id, a, b], k) => {
         if (a < 0.01) tl.set(id, { scale: 1, autoAlpha: 1 }, 0);
         else tl.fromTo(id, { scale: 0.9, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: Math.min(0.07, (b - a) / 2), ease: "power2.out" }, a);
         tl.set(id, { autoAlpha: 0 }, b);
+        // the pill never sits empty: in a pause longer than 0.6 s it leaves with the words and returns with the next
+        const next = k + 1 < caps.length ? caps[k + 1][1] : V;
+        if (next - b > 0.6) { tl.set("#scrim", { autoAlpha: 0 }, b); if (k + 1 < caps.length) tl.set("#scrim", { autoAlpha: 1 }, next); }
       });
       tl.fromTo("#zoom", { scale: 1 }, { scale: 1.02, duration: V, ease: "none", transformOrigin: "50% 36%" }, 0);
 
