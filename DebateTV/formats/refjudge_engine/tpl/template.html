@@ -19,7 +19,8 @@
       #cam video, #cam img { position: absolute; left: 0; top: 0; width: 1080px; height: 1260px; object-fit: cover; }
       /* a caption pill exactly over the band the sync gate reads (y 1266-1442 must stay dark under the words) */
       #scrim { position: absolute; left: 44px; top: 1250px; width: 872px; height: 208px; border-radius: 30px; background: rgba(6,8,16,0.9); }
-      #title { position: absolute; left: 60px; top: 222px; width: 840px; height: 100px; display: flex; align-items: center; justify-content: center; }
+      /* the pill hangs from y 222 and grows down: a three line title centred on the old box put its first line in the apps' top bar zone */
+      #title { position: absolute; left: 60px; top: 222px; width: 840px; height: 100px; display: flex; align-items: flex-start; justify-content: center; }
       #title span { display: inline-block; font-family: "TikTok Sans", Inter, sans-serif; font-weight: 800; font-size: 54px; line-height: 1.1; color: #fff; text-align: center; text-wrap: balance; background: rgba(6,8,16,0.82); padding: 14px 26px 16px; border-radius: 22px; }
       #title em { font-style: normal; color: #FFD60A; }
       .cap { position: absolute; left: 60px; top: 1266px; width: 840px; height: 176px; display: flex; align-items: center; justify-content: center; font-family: Anton, sans-serif; font-size: 84px; line-height: 1; text-transform: uppercase; color: #fff; -webkit-text-stroke: 6px #000; paint-order: stroke fill; text-shadow: 0 6px 0 rgba(0,0,0,0.55); opacity: 0; text-align: center; white-space: nowrap; }

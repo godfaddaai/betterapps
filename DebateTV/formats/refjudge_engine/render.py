@@ -680,10 +680,10 @@ def title_of(job):
     for tp in (topic, ""):
         mid = f"{who} {tp}".strip()
         plain = f"{mid}. Who won?" if VARIANT == "xwho" else f"AI ref scored {mid}"
-        if len(plain) <= 70 or not tp:
+        if len(plain) <= 80 or not tp:
             break
     # a name never breaks across the two lines, and "Who won?" stays together
-    nb = lambda t: "&nbsp;".join(html.escape(w) for w in t.split())
+    nb = lambda t: f'<span style="white-space:nowrap">{html.escape(t)}</span>'   # also holds a hyphenated name together
     sides = [nb(x) for x in who.split(" vs ")]
     em = "<em>" + " vs ".join(sides) + "</em>" + (f" {html.escape(tp)}" if tp else "")
     text = f"{em}. Who&nbsp;won?" if VARIANT == "xwho" else f"AI&nbsp;ref scored {em}"
