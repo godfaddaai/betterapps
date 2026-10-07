@@ -463,36 +463,54 @@ def lufs(path, dur=None):
 
 
 def level_bed(d, dur, bed_dur):
-    """The chain sound set from THIS cut's voices, BED_UNDER dB under them, as 41 sets it (audio map 4, 10/7 night).
-    It used to play chain-drop2.wav at one level for every clip, and the cut's voices only get a one pass loudnorm
-    (-13.6 to -14.8 LUFS), so in the 10/7 mix check the sound sat 2.3 dB under to 1.7 over them. The job's own copy
-    of the file is replaced; the gain is the loudness of the stretch that plays. -> log for cut.json"""
-    bed = d / "assets/chain-drop2.wav"
-    v, b = lufs(d / "assets/cut.mp4", dur), lufs(bed, bed_dur)
+    """The voices set to -14 LUFS as their own stem, then the chain sound BED_UNDER dB under what they measure, as 41
+    sets it (audio map 4, 10/7 night, ask a040). Before: the cut's voices had only a one pass loudnorm (-13.6 to -14.8
+    LUFS) and the sound played at one level for every clip, so in the 10/7 mix check it sat 2.3 dB under to 1.7 over
+    them. Setting the sound against the cut alone was not enough: on a quiet cut the master's -3 dBFS limiter then
+    squashed the voices' peaks and took about 1 dB off them against the sound (measured on the raw mix, 10/7 night).
+    So the voices are limited here, oversampled, with peaks under -3.3 dBFS (under the master's limiter), and the sound
+    is set against that stem. -> log for cut.json"""
+    cut, voice, bed = d / "assets/cut.mp4", d / "assets/voice.wav", d / "assets/chain-drop2.wav"
+    v0 = lufs(cut, dur)
+    if v0 is None:
+        raise RuntimeError("bed level: no loudness read on the cut")
+    g, v = -14.0 - v0, None
+    for _ in range(3):   # the limiter takes some loudness off the peaks: measure and make it up, at most twice
+        sh(["ffmpeg", "-v", "error", "-y", "-i", str(cut), "-vn", "-af",
+            f"volume={g:.2f}dB,aresample=192000,alimiter=limit=0.684:attack=1:release=50:level=0:latency=1,aresample=48000",
+            "-c:a", "pcm_s16le", str(voice)])
+        v = lufs(voice, dur)
+        if v is None or abs(v + 14.0) <= 0.2:
+            break
+        g += -14.0 - v
+    b = lufs(bed, bed_dur)
     if v is None or b is None:
         raise RuntimeError(f"bed level: no loudness read (voices {v}, sound {b})")
-    g = round(v - BED_UNDER - b, 2)
+    gb = round(v - BED_UNDER - b, 2)
     src = d / "assets/chain-drop2.src.wav"
     bed.rename(src)
     # the limiter only catches a raised drop's peaks; latency=1 or it would play 5 ms late (10/7 audio map 4)
-    sh(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-af", f"volume={g:.2f}dB,alimiter=limit=0.89:level=disabled:latency=1",
+    sh(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-af", f"volume={gb:.2f}dB,alimiter=limit=0.89:level=disabled:latency=1",
         "-c:a", "pcm_s16le", str(bed)])
     src.unlink()
-    return {"voice_lufs": v, "bed_lufs": b, "bed_gain_db": g, "bed_under_db": BED_UNDER}
+    return {"cut_lufs": v0, "voice_gain_db": round(g, 2), "voice_lufs": v, "bed_lufs": b, "bed_gain_db": gb, "bed_under_db": BED_UNDER}
 
 
 def finish(raw, dst):
-    """Platform master: H.264 High 1080x1920 30 fps ~10 Mbps (encoded by HyperFrames), audio two-pass
-    loudnorm to -14 LUFS / -1 dBTP (what IG, TikTok and Shorts normalise toward), AAC 48 kHz, faststart."""
+    """Platform master: H.264 High 1080x1920 30 fps ~10 Mbps (encoded by HyperFrames), audio set to -14 LUFS with ONE
+    gain (peaks held by the limiter), AAC 48 kHz, faststart.
+    10/7 night (a040): the two pass loudnorm used before fell back to its dynamic mode whenever its one gain would push
+    a peak over its ceiling, and rode the level section by section: on a quiet clip it lifted the chain sound 1.9 dB
+    against the voices after level_bed had set it 1 dB under them. One gain keeps what the mix set (sfx_map.normalize_linear,
+    44's finisher, measured the same way)."""
     m = sh(["ffmpeg", "-hide_banner", "-i", str(raw), "-af", "loudnorm=I=-14:TP=-2:LRA=11:print_format=json",
             "-f", "null", "-"]).stderr
     j = json.loads(m[m.rindex("{"):m.rindex("}") + 1])
-    # loudnorm alone left 6 of 45 10/3 masters at -0.9 to 0.0 dBTP after AAC (spec -1); a 4x-oversampled limiter at
-    # -3 dBFS brings all under -1.5 dBTP and moves loudness by <= 0.2 LU (tested on the Air 10/3, account-safety audit)
-    ln = (f"loudnorm=I=-14:TP=-2:LRA=11:measured_I={j['input_i']}:measured_TP={j['input_tp']}:"
-          f"measured_LRA={j['input_lra']}:measured_thresh={j['input_thresh']}:offset={j['target_offset']}:linear=true,"
-          "aresample=192000,alimiter=limit=0.7:attack=1:release=50:level=0,aresample=48000")
-    sh(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-map", "0:v", "-map", "0:a", "-c:v", "copy", "-af", ln,
+    g = -14.0 - float(j["input_i"])
+    # a 4x-oversampled limiter at -3 dBFS keeps every master under -1.5 dBTP after AAC (tested on the Air 10/3);
+    # latency=1 or its 1 ms look ahead plays the whole sound 1 ms behind the picture (10/7 night, measured)
+    af = f"volume={g:.2f}dB,aresample=192000,alimiter=limit=0.7:attack=1:release=50:level=0:latency=1,aresample=48000"
+    sh(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-map", "0:v", "-map", "0:a", "-c:v", "copy", "-af", af,
         "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", str(dst)])
 
 
