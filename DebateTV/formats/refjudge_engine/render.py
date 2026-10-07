@@ -547,6 +547,8 @@ def aligned_words(job, spoken):
         elif spk is None:  # before the first matched word: whoever owns the next matched one
             spk = next((mine[back[k]][1] for k in range(j, len(spoken)) if k in back), job["lines"][0]["speaker"])
         text = mine[i][0] if i is not None and norm(mine[i][0]) == norm(w["w"]) else w["w"]
+        # job.json `respell`: a word whisper mishears every time, by hand ({"network": "net worth"}, 10/7). Same time.
+        text = (job.get("respell") or {}).get(norm(text), text)
         out.append({"t": w["t"] + job["start"], "e": w["e"] + job["start"], "w": text, "s": spk, "l": ln})
     return out
 

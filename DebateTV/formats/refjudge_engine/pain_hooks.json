@@ -117,6 +117,80 @@
    "viewer": "a Christian college guy who hears that's just your opinion every time faith comes up",
    "shape": "kallaway_pain",
    "true_because": "Wheeler: the number one most important thing for men to do is to try to be godly. Adam: That's your opinion."
+  },
+  "aBglxa6K8gc_546": {
+   "pain_hook": "When they throw *what you used to say* back at you",
+   "viewer": "a 20 year old who changed his mind on something and has a friend who quotes his old takes back at him",
+   "shape": "kallaway_pain",
+   "true_because": "Todd: Candidate Trump, for years, would have said, not our fight. Why are you involved?",
+   "side": "winner (Trump 57)",
+   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)"
+  },
+  "aMcjxSThD54_761": {
+   "pain_hook": "When you want the top spot and *they won't roll over*",
+   "viewer": "a 21 year old going for the one leadership spot in her club against people who will not step aside for her",
+   "shape": "kallaway_pain",
+   "true_because": "Peterson: To get to the top of any organization is an incredibly competitive enterprise. And the men that you're competing with are simply not going to roll over.",
+   "side": "winner (Peterson 73)",
+   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)"
+  },
+  "aMcjxSThD54_1040": {
+   "pain_hook": "When your whole argument gets a flat *\"it's not true\"*",
+   "viewer": "a 20 year old who laid out her whole case in seminar and got a flat no back",
+   "shape": "sanchez",
+   "true_because": "Newman: there are still men dominating our industries, our society, and therefore they've dictated the terms for so long that women have to battle to be like the man. Peterson: No, it's not true.",
+   "side": "loser (Newman 50)",
+   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)"
+  },
+  "cxnz_zJ8PIU_2415": {
+   "pain_hook": "When your friend says you *can't take your money with you*",
+   "viewer": "a 20 year old saver whose friends tell him to spend it because he cannot take it with him",
+   "shape": "sanchez",
+   "true_because": "Sharpe: Was there a Brinks truck in any part of that procession? Johnson: No, no. Sharpe: Was there a U-Haul in any of that procession?",
+   "side": "loser (Johnson 52)",
+   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)",
+   "pulled": "10/7 independent review: the kept cut is only the two questions (Brinks truck, U-Haul); the line that says it (ain't nobody took nothing with them) does not play. Not rendered."
+  },
+  "xai35U9vo3Y_2193": {
+   "pain_hook": "When you say they *copied you* and hear *\"you thought\"*",
+   "viewer": "a 19 year old who said a friend took his idea and got it handed back as something he only thought",
+   "shape": "kallaway_pain",
+   "true_because": "Dash: we had always felt that Biggie and Puff were copying us, always. Bet-David: You thought Biggie and Puff were copying you guys? Dash: No, they were.",
+   "side": "winner (Dash 54)",
+   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)"
+  },
+  "xai35U9vo3Y_2918": {
+   "pain_hook": "When they ask *what you're worth* and the answer is zero",
+   "viewer": "a 22 year old building something of his own who gets asked in front of people how much money he actually has",
+   "shape": "kallaway_pain",
+   "true_because": "Bet-David: But the problem is, what's your net worth today? Dash: Zero, zero, zip.",
+   "side": "winner (Dash 62)",
+   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)"
+  },
+  "yZYQpge1W5s_797": {
+   "pain_hook": "When you say equal outcomes and they say *pathological*",
+   "viewer": "a 20 year old sociology major who said equal outcomes in class and was told the idea itself is sick",
+   "shape": "kallaway_pain",
+   "true_because": "Lewis: you believe in equality of opportunity but not equality of outcome? Peterson: It isn't only that I don't believe in equality of outcome. I think it's an unbelievably pathological wish and doctrine.",
+   "side": "loser (Lewis 52)",
+   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)"
+  },
+  "zzjTh9QfKvg_106": {
+   "pain_hook": "When you call them out and they say *name one thing*",
+   "viewer": "a 19 year old who told a friend he was full of it and then got asked for one example",
+   "shape": "sanchez",
+   "true_because": "Student: You need to work on not doing confirmation bias. Kirk: Say one thing I said that was wrong, misleading, unfactual, not rooted in data. One thing.",
+   "side": "loser (Student 36)",
+   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)"
+  },
+  "zzjTh9QfKvg_341": {
+   "pain_hook": "When they ask you to name *one place it ever worked*",
+   "viewer": "a 20 year old defending an idea in the dorm who gets asked where it has ever worked",
+   "shape": "sanchez",
+   "true_because": "Kirk: But where has Marxism ever worked? Student: Well, I wouldn't say that Marxism itself has ever actually been tried.",
+   "side": "loser (Marxist student 38)",
+   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)",
+   "pulled": "10/7 independent review: the kept cut opens on Hitler and Nazism talk, so the pain line would sit over it for three seconds. Not rendered."
   }
  }
 }
