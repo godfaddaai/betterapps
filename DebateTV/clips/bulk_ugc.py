@@ -45,18 +45,23 @@ USED = os.path.join(HERE, "bulk_used.json")
 ICLOUD = os.path.expanduser("~/Library/Mobile Documents/com~apple~CloudDocs/DebateTV Debates")
 VID = (".mp4", ".mov", ".MOV", ".MP4", ".m4v")
 
-# Reaction clips that ALREADY carry their own hook text and speech (Hudson's shared batch)
-# must not get a second hook card pasted on them, and must keep their audio. That lane uses
-# render_pair() below instead of make_ugc.render().
+# 10/7 (ask a039, "retire the Starbucks takes"): the reaction face comes from the cleared list only, the list the
+# hand-off and queue gates check (~/Documents/ARENA/render-farm/cleared_reactions.py). The founders' own takes and
+# their shared reaction clips are retired, and no folder of clips can be named here any more: a config that still
+# lists one stops the run. No cleared clip that fits = the run stops with a plain message; nothing falls back.
+sys.path.insert(0, os.path.expanduser("~/Documents/ARENA/render-farm"))
+try:
+    import cleared_reactions as CR  # noqa: E402
+except ImportError:
+    CR = None
+
 DEFAULT_CONFIG = {
-    "_note": "Paths are expanded with ~. Add Hudson's reaction folder here the moment it lands.",
-    "reaction_dirs": [
-        "~/Library/Mobile Documents/com~apple~CloudDocs/Reagan-Share-Reaction-Debate-Clips",
-    ],
-    "reaction_has_hook": True,
-    "_reaction_note": "reaction_has_hook=true: the clip already has its caption bar and speech, so "
-                      "no hook card is drawn and the reaction's own audio is kept. Set false for "
-                      "silent face-only reactions (~/Downloads/my reactions, ~/Downloads/ugc).",
+    "_note": "Paths are expanded with ~.",
+    "_reaction_note": "Reactions are the cleared list (python3 ~/Documents/ARENA/render-farm/cleared_reactions.py "
+                      "list). A take we may post joins by getting a row in that list, never a folder here.",
+    "political": True,
+    "_political_note": "Are the debate clips political? true (the safe answer when nobody checked every clip): "
+                       "only faces whose license has no political limit. false: Pexels faces too.",
     "clip_dirs": [
         f"{ICLOUD}/Reels",
         f"{ICLOUD}/Enhanced",
@@ -140,25 +145,44 @@ def files_in(dirs):
     return out
 
 
+def cleared_reactions(cfg):
+    """file -> its row in the cleared list, for every clip that may open these reels. Stops when there is none."""
+    who = "bulk_ugc"
+    if CR is None:
+        sys.exit(f"\nNO CLEARED REACTION for {who}: ~/Documents/ARENA/render-farm/cleared_reactions.py is missing.\n"
+                 f"  Nothing was built. The founder takes are retired and nothing falls back to them.\n")
+    old = [k for k in ("reaction_dirs", "reaction_has_hook") if cfg.get(k)]
+    if old:
+        CR.stop(who, f"{os.path.basename(CONFIG)} still sets {' and '.join(old)} (a folder of the founders' reaction "
+                     f"clips). Delete those keys: the face comes from the cleared list only")
+    return {CR.path_of(r): r for r in CR.fitting(cfg.get("political", True), who, cfg["react_secs"])}
+
+
 def inventory(cfg):
-    reactions = files_in(cfg["reaction_dirs"])
+    lib = cleared_reactions(cfg)
+    reactions = list(lib)
     clips = files_in(cfg["clip_dirs"])
-    prebaked = cfg.get("reaction_has_hook")
-    hooks = [""] if prebaked else cfg["hooks"]
+    # a stock face reacts to the clip; a first person line would put words in that person's mouth (their license)
+    mine = [h for h in cfg["hooks"] if CR.speaks_for_the_person(h)]
+    hooks = [h for h in cfg["hooks"] if h not in mine]
+    if not hooks:
+        CR.stop("bulk_ugc", "every hook line is in the first person, and a stock face never speaks as a user")
     used = load_json(USED, [])
     total = len(reactions) * len(clips) * len(hooks)
-    print(f"\nreactions      {len(reactions)}")
+    print(f"\nreactions      {len(reactions)}  (cleared list, {'political' if cfg.get('political', True) else 'not political'}"
+          f", at least {cfg['react_secs']} s)")
     print(f"debate clips   {len(clips)}")
-    print(f"hooks          {len(hooks)}" + ("  (baked into the reaction clips)" if prebaked else ""))
+    print(f"hooks          {len(hooks)}" + (f"  ({len(mine)} first person lines set aside for a stock face)" if mine else ""))
     print(f"combinations   {total:,}  (already rendered: {len(used):,})")
     print(f"remaining      {total - len(used):,} reels available with today's parts")
     print(f"\nat 108 posts/day that is {(total - len(used)) // 108 if total else 0} days of content")
     print("More raw debates in LiveKit Recordings can become new clips: debate_clips.py")
-    return reactions, clips, hooks
+    return lib, clips, hooks
 
 
 def plan(cfg, n):
-    reactions, clips, hooks = inventory(cfg)
+    lib, clips, hooks = inventory(cfg)
+    reactions = list(lib)
     if not reactions or not clips:
         sys.exit("\nNeed at least one reaction and one debate clip.")
     used = set(tuple(u) for u in load_json(USED, []))
@@ -190,11 +214,13 @@ def plan(cfg, n):
             "id": len(items) + 1,
             "slug": slug,
             "reaction": reaction,
+            "reaction_id": lib[reaction]["id"],
+            "reaction_license": lib[reaction]["license"].split(":")[0],
             "hook": hook,
             "debate": clip,
             "react_secs": cfg["react_secs"],
             "caption": cfg["caption_template"].format(tags=rng.choice(cfg["tag_sets"])),
-            "prebaked_hook": bool(cfg.get("reaction_has_hook")),
+            "prebaked_hook": False,     # a cleared face is silent and carries no text: the hook card is drawn
             "music": os.path.expanduser(cfg["music"]) if cfg.get("music") else None,
             "music_vol": cfg.get("music_vol", 0.22),
             "logo": os.path.expanduser(cfg["logo"]) if cfg.get("logo") else None,
@@ -344,6 +370,7 @@ def render_pair(reaction, demo, out, music=None, music_vol=0.22, duck_vol=0.07, 
 def render_one(item, out_dir):
     name = f"{item['id']:04d}_{item['slug']}"
     out = os.path.join(out_dir, name + ".mp4")
+    CR.from_file(item["reaction"], f"bulk_ugc reel {item['id']}")     # a cleared clip, or the run stops
     if item.get("prebaked_hook"):
         render_pair(item["reaction"], item["debate"], out,
                     music=item.get("music"), music_vol=item.get("music_vol", 0.22),
