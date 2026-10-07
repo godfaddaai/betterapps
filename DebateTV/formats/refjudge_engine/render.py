@@ -11,7 +11,7 @@ exchange (pick_window: whole sentences around the payoff line) before the REF's 
 1080x1920 H.264 ~10 Mbps, -14 LUFS / -1 dBTP, and must pass reel_qa.py (sampled frames: no cut or covered face,
 nothing under platform UI) or it is marked REJECTED and never filed. No network needed except fonts/GSAP CDNs.
 """
-import html, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time
+import html, json, math, os, pathlib, re, shutil, subprocess, sys, tempfile, time
 
 import cv2
 
@@ -459,7 +459,8 @@ def lufs(path, dur=None):
     r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", *(["-t", f"{dur:.3f}"] if dur else []), "-i", str(path),
                         "-vn", "-af", "ebur128", "-f", "null", "-"], capture_output=True, text=True)
     m = re.findall(r"I:\s+(-?[\d.]+) LUFS", r.stderr)
-    return float(m[-1]) if m else None
+    v = float(m[-1]) if m else None
+    return v if v is not None and v > -60 else None    # ebur128 prints -70.0 for silence or under 0.4 s
 
 
 def level_bed(d, dur, bed_dur):
@@ -473,7 +474,7 @@ def level_bed(d, dur, bed_dur):
     cut, voice, bed = d / "assets/cut.mp4", d / "assets/voice.wav", d / "assets/chain-drop2.wav"
     v0 = lufs(cut, dur)
     if v0 is None:
-        raise RuntimeError("bed level: no loudness read on the cut")
+        raise Rejected("bed level: the cut reads silent")
     g, v = -14.0 - v0, None
     for _ in range(3):   # the limiter takes some loudness off the peaks: measure and make it up, at most twice
         sh(["ffmpeg", "-v", "error", "-y", "-i", str(cut), "-vn", "-af",
@@ -485,7 +486,7 @@ def level_bed(d, dur, bed_dur):
         g += -14.0 - v
     b = lufs(bed, bed_dur)
     if v is None or b is None:
-        raise RuntimeError(f"bed level: no loudness read (voices {v}, sound {b})")
+        raise Rejected(f"bed level: no loudness read (voices {v}, sound {b})")
     gb = round(v - BED_UNDER - b, 2)
     src = d / "assets/chain-drop2.src.wav"
     bed.rename(src)
@@ -506,7 +507,8 @@ def finish(raw, dst):
     m = sh(["ffmpeg", "-hide_banner", "-i", str(raw), "-af", "loudnorm=I=-14:TP=-2:LRA=11:print_format=json",
             "-f", "null", "-"]).stderr
     j = json.loads(m[m.rindex("{"):m.rindex("}") + 1])
-    g = -14.0 - float(j["input_i"])
+    i = float(j["input_i"])
+    g = -14.0 - i if math.isfinite(i) and i > -60 else 0.0      # a silent master is not lifted (it was "inf dB")
     # a 4x-oversampled limiter at -3 dBFS keeps every master under -1.5 dBTP after AAC (tested on the Air 10/3);
     # latency=1 or its 1 ms look ahead plays the whole sound 1 ms behind the picture (10/7 night, measured)
     af = f"volume={g:.2f}dB,aresample=192000,alimiter=limit=0.7:attack=1:release=50:level=0:latency=1,aresample=48000"
