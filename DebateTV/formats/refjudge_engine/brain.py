@@ -280,8 +280,19 @@ def transcript_words(vid):
     return words
 
 
+def video_info(url):
+    """id, title, channel. This Mac first (45 s); when YouTube stalls it, the Air's yt-dlp answers."""
+    try:
+        return json.loads(run(["yt-dlp", "--no-warnings", "-J", "--skip-download", url], timeout=45).stdout)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError):
+        r = run(["ssh", "-o", "ConnectTimeout=15", AIR, "export PYTHONPATH=$HOME/render/tools/ytdlp; perl -e 'alarm 100; exec @ARGV' "
+                 "$HOME/render/py/bin/python -m yt_dlp --no-warnings --skip-download --print '%(.{id,title,channel})j' "
+                 f"'{url}'"], timeout=150)
+        return json.loads(r.stdout.strip().splitlines()[-1])
+
+
 def fetch(url, work):
-    info = json.loads(run(["yt-dlp", "--no-warnings", "-J", "--skip-download", url], timeout=180).stdout)
+    info = video_info(url)
     # one try, 60 s: on 10/7 this call hung for 12 minutes on three videos at once instead of answering 429
     try:
         run(["yt-dlp", "--no-warnings", "-q", "--skip-download", "--write-auto-subs", "--sub-langs", "en",
