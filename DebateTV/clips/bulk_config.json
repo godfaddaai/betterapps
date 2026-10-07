@@ -1,0 +1,38 @@
+{
+  "_note": "Paths are expanded with ~. Add Hudson's reaction folder here the moment it lands.",
+  "reaction_dirs": [
+    "~/Library/Mobile Documents/com~apple~CloudDocs/Reagan-Share-Reaction-Debate-Clips"
+  ],
+  "reaction_has_hook": true,
+  "_reaction_note": "reaction_has_hook=true: the clip already has its caption bar and speech, so no hook card is drawn and the reaction's own audio is kept. Set false for silent face-only reactions (~/Downloads/my reactions, ~/Downloads/ugc).",
+  "clip_dirs": [
+    "~/Documents/BetterApps/DebateTV/clips/demo_pool"
+  ],
+  "_skip_note": "Reels_pre-apostrophe-fix is the same 29 clips with a caption bug. Raw LiveKit recordings are full debates, not clips: run debate_clips.py on them first.",
+  "hooks": [
+    "he really said this with his whole chest \ud83d\udc80",
+    "POV: you have to debate this guy for 3 minutes",
+    "bro argued this with a straight face \ud83d\udc40",
+    "i cannot believe he actually won this one",
+    "tell me he's wrong. i'll wait.",
+    "this took an insane turn at the end",
+    "he had NO business winning this",
+    "an AI judged this and picked a side \ud83d\ude2d",
+    "who's actually right here",
+    "i lost my mind at 0:08"
+  ],
+  "caption_template": "settle it on DebateTV \ud83c\udfc6 who's right? {tags}",
+  "tag_sets": [
+    "#debate #freespeech #america",
+    "#debate #philosophy #hottake",
+    "#debate #goat #nba",
+    "#debate #firstamendment #politics",
+    "#debate #argument #truth"
+  ],
+  "react_secs": 2.6,
+  "accounts_shard_size": 9,
+  "_clip_note": "Demo pool = 15s slices of finished debate recordings (the app on screen, branded overlay, no TestFlight bar). Regenerate with: bulk_ugc.py cut-demos",
+  "music": "~/Documents/BetterApps/DebateTV/clips/assets/music/interstellar.mp3",
+  "music_vol": 0.22,
+  "logo": ""
+}
