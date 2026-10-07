@@ -37,6 +37,7 @@ REVEAL_LEAD = 0.075        # the chain sound starts this long before the scoreca
                            # frame by 55 ms as in the Umax reel, and the bass takes 20 ms to rise
 PAYOFF_SNAP = 0.55         # a payoff that ends this close to the scorecard gets no boom: the drop is the hit
 CTA = 3.5                  # the end card's hold (41_whowon cta_secs)
+BED_UNDER = 1.0            # the chain sound plays this many dB under the cut's voices (41's rule, sfx_map.chain)
 CATS = [("logicalConsistency", "LOGIC"), ("factualAccuracy", "FACTS"), ("rhetoricalSkill", "RHETORIC"),
         ("rebuttalQuality", "REBUTTAL"), ("fallacyAvoidance", "CLEAN PLAY")]
 BANNER = 110               # source rows hidden: the burned-in top strip (Jubilee's question + logo)
@@ -453,6 +454,33 @@ def cut_video(job, src, dst):
     return round(b - a, 2), len(labels)
 
 
+def lufs(path, dur=None):
+    """Integrated loudness (EBU R128) of a file's audio, its first `dur` seconds when given. -> LUFS or None"""
+    r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", *(["-t", f"{dur:.3f}"] if dur else []), "-i", str(path),
+                        "-vn", "-af", "ebur128", "-f", "null", "-"], capture_output=True, text=True)
+    m = re.findall(r"I:\s+(-?[\d.]+) LUFS", r.stderr)
+    return float(m[-1]) if m else None
+
+
+def level_bed(d, dur, bed_dur):
+    """The chain sound set from THIS cut's voices, BED_UNDER dB under them, as 41 sets it (audio map 4, 10/7 night).
+    It used to play chain-drop2.wav at one level for every clip, and the cut's voices only get a one pass loudnorm
+    (-13.6 to -14.8 LUFS), so in the 10/7 mix check the sound sat 2.3 dB under to 1.7 over them. The job's own copy
+    of the file is replaced; the gain is the loudness of the stretch that plays. -> log for cut.json"""
+    bed = d / "assets/chain-drop2.wav"
+    v, b = lufs(d / "assets/cut.mp4", dur), lufs(bed, bed_dur)
+    if v is None or b is None:
+        raise RuntimeError(f"bed level: no loudness read (voices {v}, sound {b})")
+    g = round(v - BED_UNDER - b, 2)
+    src = d / "assets/chain-drop2.src.wav"
+    bed.rename(src)
+    # the limiter only catches a raised drop's peaks; latency=1 or it would play 5 ms late (10/7 audio map 4)
+    sh(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-af", f"volume={g:.2f}dB,alimiter=limit=0.89:level=disabled:latency=1",
+        "-c:a", "pcm_s16le", str(bed)])
+    src.unlink()
+    return {"voice_lufs": v, "bed_lufs": b, "bed_gain_db": g, "bed_under_db": BED_UNDER}
+
+
 def finish(raw, dst):
     """Platform master: H.264 High 1080x1920 30 fps ~10 Mbps (encoded by HyperFrames), audio two-pass
     loudnorm to -14 LUFS / -1 dBTP (what IG, TikTok and Shorts normalise toward), AAC 48 kHz, faststart."""
@@ -752,6 +780,7 @@ def build(job, dur, d, words):
     k_end = said[ks[1]]["e"] if ks else None
     pay = frame(k_end) if k_end is not None and dur - k_end >= PAYOFF_SNAP else None
     bed_at = max(0.0, f_card - REVEAL_LEAD)
+    bed_log = level_bed(d, dur, total - bed_at)
     boom_tag = ""
     if pay is not None:
         # the payoff boom's tail is faded out by the frame the chain sound starts: the boom and the drop never ring together
@@ -804,7 +833,7 @@ def build(job, dur, d, words):
         s = s.replace(k, val)
     assert "{{" not in s, re.findall(r"{{\w+}}", s)
     (d / "index.html").write_text(s)
-    return v, {"card": f_card, "ask": f_ask, "boom": pay, "boom_on": "payoff" if pay is not None else "none",
+    return v, {**bed_log, "card": f_card, "ask": f_ask, "boom": pay, "boom_on": "payoff" if pay is not None else "none",
                "bed": bed_at, "total": total, "title": html.unescape(re.sub(r"<[^>]+>", "", title2 or hook)).replace("\xa0", " "),
                **({"pain_hook": pain_plain, "pain_until": swap, "viewer": job.get("viewer", ""), "answer": PAIN_ANSWER}
                   if swap is not None else {})}
