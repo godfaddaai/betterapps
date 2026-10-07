@@ -73,24 +73,28 @@ video, a game or challenge. Say why in one sentence. If it is false, return no e
 STEP 2, find up to {n} exchanges, best first. Each one must pass every test:
 1. Two sides. A and B hold opposite positions on ONE clear question and each says at least one full sentence for
    their own side inside the exchange. Not one person talking while the other says "right" or "okay", not a host
-   teeing up a guest, not two people agreeing, not a question that gets a speech for an answer. A cross
-   examination is not a debate: skip it when one side only asks questions, only answers yes or no, or dodges
-   without giving a reason.
+   teeing up a guest, not two people agreeing, not a question that gets a speech for an answer. Each side must
+   say at least one full sentence that is a STATEMENT for their own side (not a question, and not "yes", "no",
+   "absolutely", "certainly", "okay"), and the two statements must contradict each other. If one side only asks
+   questions, skip it, however good the trap.
 2. Opens on the hook. The very first words are the question, the claim or the challenge itself, strong enough that
    a stranger with no context wants to hear the answer. No "so", no setup, no leftover half sentence. The first
    sentence names its own subject: no "it", "that", "there", "the key difference" or "to be clear" pointing at
-   something said earlier, and not an open invitation like "talk to me about".
+   something said earlier, and not an open invitation like "talk to me about". Every "it", "that", "this",
+   "he" or "she" in the first and the last sentence has its noun said inside the pick.
 3. Stays open. The viewer cannot tell who is winning until the payoff. The turns are short and they escalate:
    pushback inside the first 6 seconds, then a turn about every 5 seconds or faster. No stretch where one person
    talks for more than 8 seconds. If the question alone takes more than 6 seconds to ask, skip the moment.
 4. Pays off. It ends on the sharpest line (a comeback, a trap closing, a concession, a number that settles it),
    and that line is the last thing said. The payoff is a point about the question. Skip the moment when its
    hardest line is about the other person or a group ("you have no idea"), settles nothing ("that's not the
-   claim"), or when the question is whether a named person is lying.
+   claim"), or when the question is whether a named person is lying. Read the two sentences after your
+   payoff: skip when the payoff is only the start of a reply ("well, first of all"), could be the start of the
+   other speaker's next sentence, or argues about what was said earlier ("we just agreed").
 5. Stands alone. Someone who has never seen the video understands the question and both answers.
 6. About the take, never the person. Skip insults with no argument, pile-ons, anyone who looks or sounds like a
-   minor, sexually explicit talk, swearing (the captions print every word), and anything that only works if you
-   know an earlier part of the video.
+   minor, sexually explicit talk or talk about anyone's sexual past, swearing (the captions print every word),
+   and anything that only works if you know an earlier part of the video.
 Length, first word to last word: 10 to 18 seconds, never more than 19. Only the last 19 seconds ending on the
 payoff are played, so anything earlier is cut and your hook goes with it. A moment that needs more than 19 seconds
 is not a pick. No overlapping exchanges. Prefer moments with a person a 19 year old would recognise, but never
@@ -98,11 +102,11 @@ invent who is speaking: if the hook or the payoff could be either speaker, skip 
 
 For each exchange give:
 - start / end in seconds. start is the first word of the hook. end is the moment the last word of the payoff finishes, and nothing after it: no "okay", no first words of the reply.
-- motion: the question they are arguing, as a short yes/no question
-- a_name / b_name: A = the person who speaks first. Use real names only when the title or transcript makes them certain (e.g. the famous host named in the title). Otherwise use a short description like "Harris voter" or "Student": what they say they are, or the side they argue. Never a political label they did not use themselves, never a word about their body or health.
+- motion: the question they are arguing, as a short yes/no question, using only nouns said inside the pick
+- a_name / b_name: A = the person who speaks first. Use real names only when the title or transcript makes them certain (e.g. the famous host named in the title). Otherwise use a short description like "Harris voter" or "Student": what they say they are, or the side they argue ("a panelist" when unsure). Never a political label they did not use themselves, never their race, never a first name that is not spoken in the pick, never a word about their body or health.
 - a_side / b_side: the position each one argues, in ten words or fewer
 - matchup: short, like "Ben Shapiro vs a Harris voter"
-- hook_topic: what they clash about as two to five plain words starting with "on", like "on the right to offend". It finishes the title "<matchup> <hook_topic>. Who won?", so it must be literally true of these lines, use words said in them, mean something to a stranger, not hint who wins, and have no dashes or punctuation.
+- hook_topic: what they clash about as two to five plain words starting with "on", like "on the right to offend". It finishes the title "<matchup> <hook_topic>. Who won?", so it must be literally true of these lines, use words said in them, name the thing argued (never one side's claim stated as fact), mean something to a stranger, not hint who wins, and have no dashes or punctuation.
 - lines: every sentence in order, speaker A or B, its start time, and the text copied from the transcript (you may fix obvious caption typos; never add words that were not said, never join two half lines into one, copy crosstalk as it is). Line start times strictly increase.
 - kill_phrase: the 2-6 exact words that land the hardest
 - retention: why a viewer stays to the end, in one or two plain sentences with no dashes: quote the opening words that stop the scroll, name what is still unsettled in the middle, and say what the last line pays off.
@@ -134,6 +138,66 @@ long videos. For every line decide from the title and channel:
 Return every id exactly once. Only return the JSON.
 
 {rows}"""
+
+
+REVIEW_SCHEMA = {
+    "type": "object", "additionalProperties": False, "required": ["picks"],
+    "properties": {"picks": {"type": "array", "items": {
+        "type": "object", "additionalProperties": False, "required": ["key", "verdict", "why"],
+        "properties": {"key": {"type": "string"}, "verdict": {"type": "string", "enum": ["KEEP", "WEAK", "PULL"]},
+                       "why": {"type": "string"}},
+    }}},
+}
+
+REVIEW = """You are the second reader. Be skeptical: your job is to find what is wrong with each pick, not to confirm it.
+
+DebateTV cuts short vertical clips out of long debates. A clip opens with the title "<A> vs <B> <on what>. Who won?",
+plays the whole pick (8 to 19 seconds), then shows an AI referee's scorecard. The owner's rule: "Clips are picked as
+real debates for retention, not scraped at random for volume." A first reader picked the moments below from the video
+"{title}" ({channel}). For each pick you get its title, each side's position, its lines with the speaker the first
+reader assigned, the reason it gave, and the RAW captions (no speaker labels, word times good to half a second) for
+25 seconds before, during, and 12 seconds after. Judge from the raw captions, never from the first reader's claims.
+
+KEEP only when all of this is true:
+1. Two people argue opposite sides of one question and EACH makes a statement for their own side. A chain of
+   questions against yes and no answers is a cross examination, not a debate.
+2. The lines are what the captions say, and the speaker of the hook and of the payoff is clear from the words.
+3. The first sentence stops a stranger with no context and names its own subject (no "it", "that", "he" whose noun
+   is only said earlier).
+4. The last line is the hardest line, is a whole sentence, is a point about the question (not about the other
+   person or a group), and the captions after it do not show it was only the start of a longer reply.
+5. It stands alone, and the title is literally true of the lines, in words said in them, with no hint of who wins,
+   no name the captions do not support, no label on a private person (race, politics, body).
+6. Nothing about a person rather than a take, no pile-on, no one who sounds like a minor, no explicit talk or talk
+   about anyone's sexual past, no swearing.
+WEAK = a real debate that fails 3, 4 or 5. PULL = fails 1, 2 or 6. Give every pick one verdict and one or two plain
+sentences with no dashes that quote the caption words deciding it. Most picks should not survive you; KEEP is earned.
+Only return the JSON.
+
+{picks}"""
+
+
+def second_read(vid_title, channel, exchanges, words):
+    """An independent second pass over the picks that passed check(): {key: (verdict, why)}. The first two human
+    ordered reviews (10/7) kept 6 of 21 and 3 of 10 of what one reader picked, so nothing is filed on one reading."""
+    g = lambda a, b: " ".join(w for t, w in words if a <= t < b)
+    blocks = []
+    for key, ex in exchanges:
+        blocks.append(f"""## PICK {key} ({ex['end'] - ex['start']:.1f} s)
+Title: "{ex['matchup']} {ex['hook_topic']}. Who won?"
+Motion: {ex['motion']}
+A = {ex['a_name']}: {ex['a_side']}
+B = {ex['b_name']}: {ex['b_side']}
+Kill phrase: {ex['kill_phrase']}
+First reader's reason: {ex['retention']}
+Lines:
+""" + "\n".join(f"  {l['speaker']} [{l['start']:.1f}] {l['text']}" for l in ex["lines"]) + f"""
+Raw captions, 25 s BEFORE: {g(ex['start'] - 25, ex['start'])}
+Raw captions, THE PICK: {g(ex['start'], ex['end'] + 0.3)}
+Raw captions, 12 s AFTER: {g(ex['end'] + 0.3, ex['end'] + 12)}
+""")
+    got, by = ask(REVIEW.format(title=vid_title, channel=channel, picks="\n".join(blocks)), REVIEW_SCHEMA)
+    return {p["key"]: (p["verdict"], p["why"].strip()) for p in got["picks"]}, by
 
 
 class PickerDown(RuntimeError):
@@ -242,6 +306,7 @@ def triage(rows):
             for v in vids if v["id"].strip() in want}
 
 
+ASSENT = {"yes", "yeah", "yep", "no", "nope", "absolutely", "certainly", "okay", "ok", "right", "sure", "agreed", "exactly", "correct"}
 MAX_PICK = 19.5  # render.py plays 19 s or less ending on the payoff (MAX_CLIP): a longer pick loses its own hook
 
 
@@ -259,6 +324,14 @@ def check(ex, words):
         return "one speaker"
     if min(said.values()) < 6:
         return f"one side says {min(said.values())} words: not two sides"
+    # a side that only asks questions or only assents has made no case (review 2: cross examinations passed)
+    stated = dict.fromkeys(said, 0)
+    for l in lines:
+        ws = [norm(w) for w in l["text"].split() if norm(w)]
+        if not l["text"].strip().endswith("?"):
+            stated[l["speaker"]] += len([w for w in ws if w not in ASSENT])
+    if min(stated.values()) < 6:
+        return "one side only asks or agrees: a cross examination, not a debate"
     if any(b["start"] <= a["start"] for a, b in zip(lines, lines[1:])):
         return "line times do not increase (speaker tags would flip)"
     # each voice's unbroken stretch, from the line times
@@ -282,9 +355,9 @@ def check(ex, words):
         if mine and sum(w in heard for w in mine) / len(mine) < 0.6:
             return f"a line is not what the transcript says at {l['start']:.0f} s"
     kill = [norm(w) for w in ex["kill_phrase"].split() if norm(w)]
-    last = [norm(w) for l in lines if l["start"] >= runs[-1][1] for w in l["text"].split() if norm(w)]
+    last = [norm(w) for w in lines[-1]["text"].split() if norm(w)]
     if not kill or not any(last[i:i + len(kill)] == kill for i in range(len(last))):
-        return "the kill phrase is not in the last speaker's lines: the payoff is not the end"
+        return "the kill phrase is not in the last line: the payoff is not the end"
     if not ex["retention"].strip() or not ex["hook_topic"].strip():
         return "no reason or no topic given"
     return ""
@@ -517,12 +590,23 @@ def main():
                           "exchanges": exchanges}, indent=1))
         return
 
-    made = 0
+    made, stood = 0, []
     for rank, ex in enumerate(exchanges, 1):  # the picker returns its best first
         key = f"{vid}_{int(ex['start'])}"
         why_not = "already in the ledger" if key in ledger else check(ex, words)
         if why_not:
             print(f"skip {key}: {why_not}", file=sys.stderr); continue
+        stood.append((key, rank, ex))
+    read = {}
+    if stood:
+        try:
+            read, read_by = second_read(title, channel, [(k, ex) for k, _, ex in stood], words)
+        except PickerDown as e:
+            sys.exit(f"picker down, {e}")
+    for key, rank, ex in stood:
+        verdict2, why2 = read.get(key, ("PULL", "the second reader gave no verdict"))
+        if verdict2 != "KEEP":
+            print(f"skip {key}: second reader, {verdict2.lower()}: {why2}", file=sys.stderr); continue
         for l in ex["lines"]:
             l["start"] = snap(words, l["start"], l["text"])
         ex["start"] = ex["lines"][0]["start"]  # open on the question itself, never on leftover words
@@ -547,7 +631,8 @@ def main():
             continue
         ex["hook_topic"] = re.sub(r"[^\w' ]+", " ", ex["hook_topic"]).strip()  # on screen: no dashes, no punctuation
         job = {"key": key, "source": {"url": a.url, "id": vid, "title": title, "channel": channel, "t0": round(t0, 2)},
-               **ex, "picker": {"by": by, "at": time.strftime("%F %T"), "rank": rank, "video": verdict_on_video["why"]},
+               **ex, "picker": {"by": by, "at": time.strftime("%F %T"), "rank": rank, "video": verdict_on_video["why"],
+                          "second_reader": read_by, "second_read": why2},
                "words": cap, "judge_request": req, "judge_response": verdict}
         (d / "job.json").write_text(json.dumps(job, indent=1))
         # several brains run at once (render-farm feeder): merge with what the others wrote since we started
