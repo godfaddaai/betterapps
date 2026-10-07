@@ -221,6 +221,7 @@ def plan(cfg, n):
             "react_secs": cfg["react_secs"],
             "caption": cfg["caption_template"].format(tags=rng.choice(cfg["tag_sets"])),
             "prebaked_hook": False,     # a cleared face is silent and carries no text: the hook card is drawn
+            "political": cfg.get("political", True),
             "music": os.path.expanduser(cfg["music"]) if cfg.get("music") else None,
             "music_vol": cfg.get("music_vol", 0.22),
             "logo": os.path.expanduser(cfg["logo"]) if cfg.get("logo") else None,
@@ -370,7 +371,8 @@ def render_pair(reaction, demo, out, music=None, music_vol=0.22, duck_vol=0.07, 
 def render_one(item, out_dir):
     name = f"{item['id']:04d}_{item['slug']}"
     out = os.path.join(out_dir, name + ".mp4")
-    CR.from_file(item["reaction"], f"bulk_ugc reel {item['id']}")     # a cleared clip, or the run stops
+    CR.for_reel(item["reaction"], f"bulk_ugc reel {item['id']}", item.get("political"),      # a cleared clip that
+                item.get("react_secs", 2.6), item.get("hook"))                                # fits, or the run stops
     if item.get("prebaked_hook"):
         render_pair(item["reaction"], item["debate"], out,
                     music=item.get("music"), music_vol=item.get("music_vol", 0.22),
@@ -379,7 +381,8 @@ def render_one(item, out_dir):
         sys.path.insert(0, HERE)
         import make_ugc  # imported here so `inventory` works without ffmpeg/Chrome
         make_ugc.render(item["reaction"], item["hook"], item["debate"], out,
-                        react_secs=item.get("react_secs", 2.6), tmp=f"/tmp/ugc_work_{item['id']}")
+                        react_secs=item.get("react_secs", 2.6), tmp=f"/tmp/ugc_work_{item['id']}",
+                        political=item.get("political"))
     if not os.path.exists(out) or os.path.getsize(out) < 100_000:
         raise RuntimeError(f"render produced nothing usable: {out}")
     with open(os.path.join(out_dir, name + ".txt"), "w") as f:

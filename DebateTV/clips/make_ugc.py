@@ -19,11 +19,11 @@ except ImportError:
     CR = None
 
 
-def cleared(reaction, who):
+def cleared(reaction, who, political=None, secs=0.0, hook=None):
     if CR is None:
         raise SystemExit(f"\nNO CLEARED REACTION for {who}: ~/Documents/ARENA/render-farm/cleared_reactions.py is "
                          f"missing.\n  Nothing was built. The founder takes are retired and nothing falls back to them.\n")
-    CR.from_file(reaction, who)
+    CR.for_reel(reaction, who, political, secs, hook)   # in the list, allowed on this piece, long enough, no "i" line
 
 
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
@@ -58,8 +58,8 @@ def _dur(p):
     try: return float(r.stdout.strip())
     except: return 0.0
 
-def render(reaction, hook, debate, out, react_secs=3.0, tmp="/tmp/ugc_work"):
-    cleared(reaction, "make_ugc")
+def render(reaction, hook, debate, out, react_secs=3.0, tmp="/tmp/ugc_work", political=None):
+    cleared(reaction, "make_ugc", political, react_secs, hook)
     os.makedirs(tmp, exist_ok=True)
     card=os.path.join(tmp,"hook.png"); hook_card(hook, card)
     total=react_secs+_dur(debate); rms=int(react_secs*1000)
@@ -93,7 +93,8 @@ def render(reaction, hook, debate, out, react_secs=3.0, tmp="/tmp/ugc_work"):
 
 def main(manifest_path, outdir):
     man=json.load(open(manifest_path)); os.makedirs(outdir, exist_ok=True)
-    for m in man: cleared(m["reaction"], f"make_ugc reel {m['id']}")     # all of them, before the first render
+    for m in man:       # all of them, before the first render. "political": false on an item allows a Pexels face
+        cleared(m["reaction"], f"make_ugc reel {m['id']}", m.get("political"), m.get("react_secs", 3.0), m.get("hook"))
     ok=0
     for m in man:
         i=m["id"]; out=os.path.join(outdir, f"{i:02d}_{m.get('slug','ugc')}.mp4")
