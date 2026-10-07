@@ -175,12 +175,26 @@ def ask_codex(prompt, schema, timeout):
 
 
 def claude_login():
-    """The config dir of a Claude login with room for background work (the Max plan first), by ARENA's own rule."""
+    """The config dir of a Claude login with room for background work (the Max plan first), by ARENA's own rule.
+    The answer is reused for 10 minutes: accounts.py reads usage over the network and has taken over 2 minutes."""
     if os.environ.get("BRAIN_CLAUDE_DIR"):
         return os.path.expanduser(os.environ["BRAIN_CLAUDE_DIR"])
-    r = subprocess.run([sys.executable, ACCOUNTS, "pick", "--for", "task"], capture_output=True, text=True, timeout=120)
+    memo = pathlib.Path(os.path.expanduser("~/.render-farm/claude_login.json"))
+    try:
+        last = json.loads(memo.read_text())
+    except (OSError, ValueError):
+        last = {}
+    if time.time() - last.get("at", 0) < 600:
+        return last["dir"]
+    try:
+        r = subprocess.run([sys.executable, ACCOUNTS, "pick", "--for", "task"], capture_output=True, text=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        if last.get("dir"):
+            return last["dir"]  # no answer: the login that had room last time
+        raise PickerDown("usage limit: chat/accounts.py did not answer which Claude login has room")
     if r.returncode or not r.stdout.strip():
         raise PickerDown("usage limit: no Claude login has room for the picker right now")
+    memo.write_text(json.dumps({"dir": r.stdout.split()[0], "at": time.time()}))
     return r.stdout.split()[0]
 
 
@@ -219,9 +233,11 @@ def triage(rows):
     """Bulk pass over source titles: [(id, title, channel, seconds)] -> {id: {"debate", "figure", "why"}."""
     text = "\n".join(f"{i} | {(t or '').replace('|', ' ')[:140]} | {(c or '')[:50]} | {round((d or 0) / 60)}" for i, t, c, d in rows)
     got, by = ask(TRIAGE.format(rows=text), TRIAGE_SCHEMA, kind="bulk", timeout=600)
-    want = {r[0] for r in rows}
-    return {v["id"]: {"debate": v["debate"], "figure": v["figure"].strip(), "why": v["why"].strip(), "by": by}
-            for v in got["videos"] if v["id"] in want}
+    want, vids = {r[0] for r in rows}, got["videos"]
+    if len(vids) == len(rows) and not any(v["id"].strip() in want for v in vids):
+        vids = [dict(v, id=r[0]) for v, r in zip(vids, rows)]  # ids mangled but every row answered in order
+    return {v["id"].strip(): {"debate": v["debate"], "figure": v["figure"].strip(), "why": v["why"].strip(), "by": by}
+            for v in vids if v["id"].strip() in want}
 
 
 MAX_PICK = 19.5  # render.py plays 19 s or less ending on the payoff (MAX_CLIP): a longer pick loses its own hook
