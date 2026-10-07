@@ -550,6 +550,17 @@ def aligned_words(job, spoken):
         # job.json `respell`: a word whisper mishears every time, by hand ({"network": "net worth"}, 10/7). Same time.
         text = (job.get("respell") or {}).get(norm(text), text)
         out.append({"t": w["t"] + job["start"], "e": w["e"] + job["start"], "w": text, "s": spk, "l": ln})
+    # a `respell` key of two or more words is a phrase whisper splits wrong ({"a quality": "equality"}): the words
+    # become one caption word from the first one's start to the last one's end, keeping the closing punctuation
+    for phrase, fix in (job.get("respell") or {}).items():
+        keys = phrase.split()
+        k = 0
+        while len(keys) > 1 and k + len(keys) <= len(out):
+            if [norm(x["w"]) for x in out[k:k + len(keys)]] == keys:
+                last = out[k + len(keys) - 1]
+                tail = re.search(r"[.?!,]+$", last["w"])
+                out[k:k + len(keys)] = [dict(out[k], e=last["e"], w=fix + (tail.group(0) if tail else ""))]
+            k += 1
     return out
 
 
