@@ -73,29 +73,36 @@ video, a game or challenge. Say why in one sentence. If it is false, return no e
 STEP 2, find up to {n} exchanges, best first. Each one must pass every test:
 1. Two sides. A and B hold opposite positions on ONE clear question and each says at least one full sentence for
    their own side inside the exchange. Not one person talking while the other says "right" or "okay", not a host
-   teeing up a guest, not two people agreeing, not a question that gets a speech for an answer.
+   teeing up a guest, not two people agreeing, not a question that gets a speech for an answer. A cross
+   examination is not a debate: skip it when one side only asks questions, only answers yes or no, or dodges
+   without giving a reason.
 2. Opens on the hook. The very first words are the question, the claim or the challenge itself, strong enough that
-   a stranger with no context wants to hear the answer. No "so", no setup, no leftover half sentence.
+   a stranger with no context wants to hear the answer. No "so", no setup, no leftover half sentence. The first
+   sentence names its own subject: no "it", "that", "there", "the key difference" or "to be clear" pointing at
+   something said earlier, and not an open invitation like "talk to me about".
 3. Stays open. The viewer cannot tell who is winning until the payoff. The turns are short and they escalate:
    pushback inside the first 6 seconds, then a turn about every 5 seconds or faster. No stretch where one person
-   talks for more than about 10 seconds.
+   talks for more than 8 seconds. If the question alone takes more than 6 seconds to ask, skip the moment.
 4. Pays off. It ends on the sharpest line (a comeback, a trap closing, a concession, a number that settles it),
-   and that line is the last thing said. The opening question, one reply from each side and the payoff must fit
-   inside 19 seconds around the kill phrase, because the clip is trimmed to that.
+   and that line is the last thing said. The payoff is a point about the question. Skip the moment when its
+   hardest line is about the other person or a group ("you have no idea"), settles nothing ("that's not the
+   claim"), or when the question is whether a named person is lying.
 5. Stands alone. Someone who has never seen the video understands the question and both answers.
 6. About the take, never the person. Skip insults with no argument, pile-ons, anyone who looks or sounds like a
    minor, sexually explicit talk, and anything that only works if you know an earlier part of the video.
-Aim for 12 to 30 seconds from first word to last; never over 45. No overlapping exchanges. Prefer moments with a
-person a 19 year old would recognise, but never invent who is speaking.
+Length, first word to last word: 10 to 18 seconds, never more than 19. Only the last 19 seconds ending on the
+payoff are played, so anything earlier is cut and your hook goes with it. A moment that needs more than 19 seconds
+is not a pick. No overlapping exchanges. Prefer moments with a person a 19 year old would recognise, but never
+invent who is speaking: if the hook or the payoff could be either speaker, skip the exchange.
 
 For each exchange give:
-- start / end in seconds (start at the first word of the hook, end right after the last word of the payoff)
+- start / end in seconds. start is the first word of the hook. end is the moment the last word of the payoff finishes, and nothing after it: no "okay", no first words of the reply.
 - motion: the question they are arguing, as a short yes/no question
-- a_name / b_name: A = the person who speaks first. Use real names only when the title or transcript makes them certain (e.g. the famous host named in the title). Otherwise use a short description like "Harris voter" or "Student".
+- a_name / b_name: A = the person who speaks first. Use real names only when the title or transcript makes them certain (e.g. the famous host named in the title). Otherwise use a short description like "Harris voter" or "Student": what they say they are, or the side they argue. Never a political label they did not use themselves, never a word about their body or health.
 - a_side / b_side: the position each one argues, in ten words or fewer
 - matchup: short, like "Ben Shapiro vs a Harris voter"
-- hook_topic: what they clash about as two to five plain words starting with "on", like "on the right to offend". It finishes the title "<matchup> <hook_topic>. Who won?", so it must be literally true of these lines, must not hint who wins, and has no dashes or punctuation.
-- lines: every sentence in order, speaker A or B, its start time, and the text copied from the transcript (you may fix obvious caption typos, never add words that were not said)
+- hook_topic: what they clash about as two to five plain words starting with "on", like "on the right to offend". It finishes the title "<matchup> <hook_topic>. Who won?", so it must be literally true of these lines, use words said in them, mean something to a stranger, not hint who wins, and have no dashes or punctuation.
+- lines: every sentence in order, speaker A or B, its start time, and the text copied from the transcript (you may fix obvious caption typos; never add words that were not said, never join two half lines into one, copy crosstalk as it is). Line start times strictly increase.
 - kill_phrase: the 2-6 exact words that land the hardest
 - retention: why a viewer stays to the end, in one or two plain sentences with no dashes: quote the opening words that stop the scroll, name what is still unsettled in the middle, and say what the last line pays off.
 
@@ -217,25 +224,60 @@ def triage(rows):
             for v in got["videos"] if v["id"] in want}
 
 
+MAX_PICK = 19.5  # render.py plays 19 s or less ending on the payoff (MAX_CLIP): a longer pick loses its own hook
+
+
 def check(ex, words):
-    """What the picker claims, held against the transcript. -> "" when it stands, else why it is thrown out."""
+    """What the picker claims, held against the transcript and the clock. -> "" when it stands, else why it is
+    thrown out. (The length, turn and payoff tests came from the independent review of the first 21 picks, 10/7:
+    all were real debates, but 16 ran past the 19 s that play and lost the opening they were picked for.)"""
+    lines, t0, t1 = ex["lines"], ex["start"], ex["end"]
+    if not 8 <= t1 - t0 <= MAX_PICK:
+        return f"{t1 - t0:.0f} s: only 19 s play, a pick is 8 to 19"
     said = {}
-    for l in ex["lines"]:
+    for l in lines:
         said[l["speaker"]] = said.get(l["speaker"], 0) + len([w for w in l["text"].split() if norm(w)])
     if len(said) < 2:
         return "one speaker"
     if min(said.values()) < 6:
         return f"one side says {min(said.values())} words: not two sides"
-    turns = sum(a["speaker"] != b["speaker"] for a, b in zip(ex["lines"], ex["lines"][1:]))
-    if turns < 2:
+    if any(b["start"] <= a["start"] for a, b in zip(lines, lines[1:])):
+        return "line times do not increase (speaker tags would flip)"
+    # each voice's unbroken stretch, from the line times
+    runs = [[lines[0]["speaker"], lines[0]["start"], t1]]
+    for l in lines[1:]:
+        if l["speaker"] != runs[-1][0]:
+            runs[-1][2] = l["start"]
+            runs.append([l["speaker"], l["start"], t1])
+    if len(runs) < 3:
         return "no back and forth (the speaker changes once)"
-    heard = {norm(w) for t, w in words if ex["start"] - 3 <= t <= ex["end"] + 3}
-    mine = [norm(w) for l in ex["lines"] for w in l["text"].split() if norm(w)]
-    if not mine or sum(w in heard for w in mine) / len(mine) < 0.7:
-        return "lines are not what the transcript says at that time"
-    if not ex["retention"].strip():
-        return "no reason given"
+    if runs[1][1] - t0 > 8:
+        return f"no reply for {runs[1][1] - t0:.0f} s: the question is a speech"
+    longest = max(e - b for _, b, e in runs)
+    if longest > 10.5:
+        return f"one voice for {longest:.0f} s"
+    # every line is what the captions say in its own stretch of time (a line stitched from elsewhere fails)
+    for k, l in enumerate(lines):
+        nxt = lines[k + 1]["start"] if k + 1 < len(lines) else t1
+        heard = {norm(w) for t, w in words if l["start"] - 2.5 <= t <= nxt + 2.5}
+        mine = [norm(w) for w in l["text"].split() if norm(w)]
+        if mine and sum(w in heard for w in mine) / len(mine) < 0.6:
+            return f"a line is not what the transcript says at {l['start']:.0f} s"
+    kill = [norm(w) for w in ex["kill_phrase"].split() if norm(w)]
+    last = [norm(w) for l in lines if l["start"] >= runs[-1][1] for w in l["text"].split() if norm(w)]
+    if not kill or not any(last[i:i + len(kill)] == kill for i in range(len(last))):
+        return "the kill phrase is not in the last speaker's lines: the payoff is not the end"
+    if not ex["retention"].strip() or not ex["hook_topic"].strip():
+        return "no reason or no topic given"
     return ""
+
+
+def snap_end(words, ex):
+    """End on the last word of the last line as the captions time it, not on the picker's rounded guess (the review
+    found stray words of the next sentence after 9 of 21 payoffs)."""
+    last = [norm(w) for w in ex["lines"][-1]["text"].split() if norm(w)]
+    near = [t for t, w in words if last and norm(w) == last[-1] and abs(t - ex["end"]) <= 4 and t > ex["lines"][-1]["start"]]
+    return min(near, key=lambda t: abs(t + 0.5 - ex["end"])) + 0.5 if near else ex["end"]
 
 
 def run(cmd, **kw):
@@ -460,13 +502,15 @@ def main():
     made = 0
     for rank, ex in enumerate(exchanges, 1):  # the picker returns its best first
         key = f"{vid}_{int(ex['start'])}"
-        why_not = "" if key not in ledger and 12 <= ex["end"] - ex["start"] <= 60 else "in the ledger or the wrong length"
-        why_not = why_not or check(ex, words)
+        why_not = "already in the ledger" if key in ledger else check(ex, words)
         if why_not:
             print(f"skip {key}: {why_not}", file=sys.stderr); continue
         for l in ex["lines"]:
             l["start"] = snap(words, l["start"], l["text"])
         ex["start"] = ex["lines"][0]["start"]  # open on the question itself, never on leftover words
+        ex["end"] = snap_end(words, ex)
+        if ex["end"] - ex["start"] > MAX_PICK:
+            print(f"skip {key}: {ex['end'] - ex['start']:.0f} s once snapped to the captions", file=sys.stderr); continue
         # caption words for this exchange, each tagged with whoever's line it falls in
         span = [(t, w) for t, w in words if ex["start"] - 0.05 <= t <= ex["end"] + 0.05]
         starts = [(l["start"], l["speaker"]) for l in ex["lines"]]
