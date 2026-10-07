@@ -9,6 +9,23 @@ manifest.json: [{"id":1,"reaction":"...mov","hook":"he said a hot dog isn't a sa
 """
 import subprocess, os, sys, json, html
 
+# 10/7 (ask a039, "retire the Starbucks takes"): the reaction face is a clip from the cleared list or nothing is built.
+# The founders' takes (~/Downloads/my reactions, ~/Downloads/ugc) and any other file stop the run with a plain
+# message; there is no fallback. The list: python3 ~/Documents/ARENA/render-farm/cleared_reactions.py list
+sys.path.insert(0, os.path.expanduser("~/Documents/ARENA/render-farm"))
+try:
+    import cleared_reactions as CR
+except ImportError:
+    CR = None
+
+
+def cleared(reaction, who):
+    if CR is None:
+        raise SystemExit(f"\nNO CLEARED REACTION for {who}: ~/Documents/ARENA/render-farm/cleared_reactions.py is "
+                         f"missing.\n  Nothing was built. The founder takes are retired and nothing falls back to them.\n")
+    CR.from_file(reaction, who)
+
+
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
 def hook_card(text, dst):
@@ -42,6 +59,7 @@ def _dur(p):
     except: return 0.0
 
 def render(reaction, hook, debate, out, react_secs=3.0, tmp="/tmp/ugc_work"):
+    cleared(reaction, "make_ugc")
     os.makedirs(tmp, exist_ok=True)
     card=os.path.join(tmp,"hook.png"); hook_card(hook, card)
     total=react_secs+_dur(debate); rms=int(react_secs*1000)
@@ -75,6 +93,7 @@ def render(reaction, hook, debate, out, react_secs=3.0, tmp="/tmp/ugc_work"):
 
 def main(manifest_path, outdir):
     man=json.load(open(manifest_path)); os.makedirs(outdir, exist_ok=True)
+    for m in man: cleared(m["reaction"], f"make_ugc reel {m['id']}")     # all of them, before the first render
     ok=0
     for m in man:
         i=m["id"]; out=os.path.join(outdir, f"{i:02d}_{m.get('slug','ugc')}.mp4")

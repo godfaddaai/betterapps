@@ -13,6 +13,23 @@ manifest item: {"id","slug","reaction","hook","debate","caption","react_secs":2.
 """
 import subprocess, os, sys, json, html, re
 
+# 10/7 (ask a039, "retire the Starbucks takes"): the reaction face is a clip from the cleared list or nothing is built.
+# The founders' takes (~/Downloads/my reactions, ~/Downloads/ugc) and any other file stop the run with a plain
+# message; there is no fallback. The list: python3 ~/Documents/ARENA/render-farm/cleared_reactions.py list
+sys.path.insert(0, os.path.expanduser("~/Documents/ARENA/render-farm"))
+try:
+    import cleared_reactions as CR
+except ImportError:
+    CR = None
+
+
+def cleared(reaction, who):
+    if CR is None:
+        raise SystemExit(f"\nNO CLEARED REACTION for {who}: ~/Documents/ARENA/render-farm/cleared_reactions.py is "
+                         f"missing.\n  Nothing was built. The founder takes are retired and nothing falls back to them.\n")
+    CR.from_file(reaction, who)
+
+
 GARBLE={"chachibuki":"ChatGPT","chachibut":"ChatGPT","hermosy":"Hormozi","hermozi":"Hormozi","aspikasa":"a Picasso","kik":"Kick","wismo":"Wizzmo","wizmo":"Wizzmo"}
 def degarble(w):
     lw=w.lower().strip(".,!?")
@@ -120,6 +137,7 @@ def hook_card(text, dst):
 
 MUSICDIR=os.path.join(ASSETS,"music")
 def render(reaction, hook, debate_raw, out, react_secs=2.5, sfx=None, bed=None, tmp="/tmp/ugc2_work"):
+    cleared(reaction, "make_ugc_v2")
     os.makedirs(tmp, exist_ok=True)
     debate=append_verdict(caption_and_brand(debate_raw))   # captioned+branded debate, then the VICTORY verdict card
     card=os.path.join(tmp,"hook.png"); hook_card(hook, card)
@@ -162,6 +180,7 @@ def render(reaction, hook, debate_raw, out, react_secs=2.5, sfx=None, bed=None, 
 
 def main(manifest_path, outdir):
     man=json.load(open(manifest_path)); os.makedirs(outdir, exist_ok=True); ok=0
+    for m in man: cleared(m["reaction"], f"make_ugc_v2 reel {m['id']}")     # all of them, before the first render
     for m in man:
         i=m["id"]; out=os.path.join(outdir, f"{i:02d}_{m.get('slug','ugc')}.mp4")
         good,err=render(m["reaction"], m["hook"], m["debate"], out, m.get("react_secs",2.5), m.get("sfx"), m.get("bed"))
