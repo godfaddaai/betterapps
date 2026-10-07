@@ -16,7 +16,7 @@ arguing opposite sides, or nothing is cut), returns only exchanges where both si
 beside each one the reason a viewer stays. check() then throws out anything the transcript does not back.
   python3 brain.py <url> --dry     # the picks and their reasons, nothing judged, downloaded or filed
 """
-import argparse, datetime, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.request
+import argparse, datetime, fcntl, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.request
 
 HERE = pathlib.Path(__file__).parent
 JOBS = HERE / "jobs"
@@ -31,6 +31,7 @@ CLAUDE_MODELS = {"pick": os.environ.get("BRAIN_CLAUDE_MODEL", "claude-opus-5-5")
 CLAUDE = shutil.which("claude") or os.path.expanduser("~/.local/bin/claude")  # launchd's PATH has no ~/.local/bin
 ACCOUNTS = os.path.expanduser("~/Documents/ARENA/chat/accounts.py")
 CODEX_OUT = pathlib.Path(os.path.expanduser("~/.render-farm/codex_out.json"))
+AIR = os.environ.get("BRAIN_AIR", "air")  # ssh host of the render farm: the second route for section downloads
 PICKER = os.environ.get("BRAIN_PICKER", "auto")  # auto = Codex first, Claude when it is out; or codex / claude
 
 SCHEMA = {
@@ -280,16 +281,14 @@ def transcript_words(vid):
 
 
 def fetch(url, work):
-    info = json.loads(run(["yt-dlp", "--no-warnings", "-J", "--skip-download", url]).stdout)
-    for attempt in range(2):
-        try:
-            run(["yt-dlp", "--no-warnings", "-q", "--skip-download", "--write-auto-subs", "--sub-langs", "en",
-                 "--sub-format", "vtt", "-o", str(work / "subs"), url])
-            vtt = next(work.glob("subs*.vtt"))
-            return info, vtt_words(vtt)
-        except (subprocess.CalledProcessError, StopIteration):
-            time.sleep(5)
-    return info, transcript_words(info["id"])
+    info = json.loads(run(["yt-dlp", "--no-warnings", "-J", "--skip-download", url], timeout=180).stdout)
+    # one try, 60 s: on 10/7 this call hung for 12 minutes on three videos at once instead of answering 429
+    try:
+        run(["yt-dlp", "--no-warnings", "-q", "--skip-download", "--write-auto-subs", "--sub-langs", "en",
+             "--sub-format", "vtt", "-o", str(work / "subs"), url], timeout=60)
+        return info, vtt_words(next(work.glob("subs*.vtt")))
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, StopIteration):
+        return info, transcript_words(info["id"])
 
 
 def transcript_text(words):
@@ -342,15 +341,73 @@ def whole(path, want):
         return False
 
 
+def bounded(cmd, secs):
+    """Run and wait at most `secs`; yt-dlp's ffmpeg child is killed with it. -> True when it ran to the end."""
+    p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    try:
+        p.wait(timeout=secs)
+        return True
+    except subprocess.TimeoutExpired:
+        os.killpg(p.pid, 9)
+        p.wait()
+        return False
+
+
+AIR_DL = r"""cd ~/render && mkdir -p tmp/brain && export PYTHONPATH=$HOME/render/tools/ytdlp PATH=$HOME/render/bin:$PATH && \
+perl -e 'alarm 240; exec @ARGV' nice -n 19 py/bin/python -m yt_dlp --no-warnings -q -f '{fmt}' \
+--download-sections '*{t0:.2f}-{t1:.2f}' --force-keyframes-at-cuts --downloader-args 'ffmpeg_o:-threads 2' \
+--merge-output-format mp4 -o tmp/brain/{name}.mp4 '{url}'"""
+
+
+def air_section(url, t0, t1, dst):
+    """The same section fetched by the Air's own yt-dlp (~/render/tools/ytdlp, about 15 s) and copied back. One at
+    a time across every brain on this Mac, nice 19, two ffmpeg threads: the Air's cores belong to the fleet."""
+    name = f"{dst.parent.name}-{os.getpid()}"
+    lock = open(os.path.expanduser("~/.render-farm/air_dl.lock"), "w")
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    try:
+        for fmt in ("bv*[height<=1080][ext=mp4]+ba[ext=m4a]", "bv*[height<=1080]+ba"):
+            dst.unlink(missing_ok=True)
+            subprocess.run(["ssh", "-o", "ConnectTimeout=15", AIR, AIR_DL.format(fmt=fmt, t0=t0, t1=t1, name=name, url=url)],
+                           capture_output=True, text=True, timeout=300)
+            subprocess.run(["scp", "-q", "-o", "ConnectTimeout=15", f"{AIR}:render/tmp/brain/{name}.mp4", str(dst)],
+                           capture_output=True, text=True, timeout=300)
+            subprocess.run(["ssh", "-o", "ConnectTimeout=15", AIR, f"rm -f ~/render/tmp/brain/{name}.mp4*"],
+                           capture_output=True, text=True, timeout=60)
+            if dst.exists() and whole(dst, t1 - t0):
+                return True
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    finally:
+        lock.close()
+    return False
+
+
+STALLED = pathlib.Path(os.path.expanduser("~/.render-farm/yt_stalled"))  # this Mac's downloads stall: go to the Air first
+
+
 def download_section(url, t0, t1, dst):
-    """yt-dlp sometimes returns a section with the audio missing; try formats until it has sound."""
+    """yt-dlp sometimes returns a section with the audio missing; try formats until it has sound. YouTube also
+    stalls this Mac's downloads for hours at a time (10/7: 2 MB, then nothing for 15 minutes, while the Air took
+    13 s for the same section), so a local try gets 150 s and the Air is the other route. Whichever route worked
+    last goes first for the next 2 hours."""
+    air_first = STALLED.exists() and time.time() - STALLED.stat().st_mtime < 2 * 3600
+    if air_first and air_section(url, t0, t1, dst):
+        return
     for fmt in ("bv*[height<=1080][ext=mp4]+ba[ext=m4a]", "bv*[height<=1080]+ba", "b"):
         dst.unlink(missing_ok=True)
-        subprocess.run(["yt-dlp", "--no-warnings", "-q", "-f", fmt, "--download-sections", f"*{t0:.2f}-{t1:.2f}",
-                        "--force-keyframes-at-cuts", "--merge-output-format", "mp4", "-o", str(dst), url],
-                       capture_output=True, text=True)
+        ended = bounded(["yt-dlp", "--no-warnings", "-q", "-f", fmt, "--download-sections", f"*{t0:.2f}-{t1:.2f}",
+                         "--force-keyframes-at-cuts", "--merge-output-format", "mp4", "-o", str(dst), url], 150)
         if dst.exists() and whole(dst, t1 - t0):
+            STALLED.unlink(missing_ok=True)
             return
+        if not ended:
+            break  # stalled, not a bad format: the other formats would stall the same way
+    for part in dst.parent.glob(dst.name + ".part*"):
+        part.unlink(missing_ok=True)
+    if not air_first and air_section(url, t0, t1, dst):
+        STALLED.touch()
+        return
     raise RuntimeError(f"no whole section with audio for {url} {t0}-{t1}")
 
 
