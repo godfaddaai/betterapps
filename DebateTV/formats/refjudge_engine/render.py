@@ -45,7 +45,13 @@ FACE_Y = 0.36              # face centre sits this far down the crop (headroom a
 MIN_CROP_H = 420           # never zoom past this (source px), or the upscale goes soft
 CROPS_VERSION = 6          # bump when the reframing logic changes so cached crop plans are redone
 # One-change hook experiment: REF_VARIANT=xwho renders the same clip with an open-loop hook into out/<key>-xwho/
+# REF_VARIANT=xpain (ask a195, 10/6): frame 0 names the one viewer's own pain (job.json `pain_hook`, written by hand,
+# literally true of the kept clip; `viewer` names who it is for, rule a163), held about 3 s as the title-text rule asks,
+# then the xwho matchup line; the end card adds one answer line under "Get your own argument scored".
+# Shapes copied from pain_hooks.json's references (Gymverse "If you've ever...", Gemini "Ever...", Yope Text on Face).
 VARIANT = os.environ.get("REF_VARIANT", "")
+PAIN_HOLD = (2.7, 3.6)     # the pain line leaves on the first word that starts in this span, else at 3.0 s
+PAIN_ANSWER = "settle it 1 on 1. an AI ref scores who won"
 SUFFIX = f"-{VARIANT}" if VARIANT else ""
 # parallel `npx --yes hyperframes` installs race in ~/.npm/_npx (ENOTEMPTY/ENOENT); use one fixed install when present
 _HF = pathlib.Path(os.environ.get("HF_BIN", "~/.local/hyperframes/node_modules/.bin/hyperframes")).expanduser()
@@ -685,7 +691,7 @@ def title_of(job):
     topic = (job.get("hook_topic") or "").strip().rstrip(".?!")
     for tp in (topic, ""):
         mid = f"{who} {tp}".strip()
-        plain = f"{mid}. Who won?" if VARIANT == "xwho" else f"AI ref scored {mid}"
+        plain = f"{mid}. Who won?" if VARIANT in ("xwho", "xpain") else f"AI ref scored {mid}"
         if len(plain) <= 80 or not tp:
             break
     # a name never breaks across the two lines, and "Who won?" stays together
@@ -693,8 +699,27 @@ def title_of(job):
     nb = lambda t: f'<u>{html.escape(t)}</u>'   # nowrap: also holds a hyphenated name together
     sides = [nb(x) for x in who.split(" vs ")]
     em = "<em>" + " vs ".join(sides) + "</em>" + (f" {html.escape(tp)}" if tp else "")
-    text = f"{em}. Who&nbsp;won?" if VARIANT == "xwho" else f"AI&nbsp;ref scored {em}"
+    text = f"{em}. Who&nbsp;won?" if VARIANT in ("xwho", "xpain") else f"AI&nbsp;ref scored {em}"
     return text, (54 if len(plain) <= 50 else 48 if len(plain) <= 60 else 42)
+
+
+def pain_of(job):
+    """xpain arm: the viewer's own pain in words on frame 0. `pain_hook` marks the words that sting with *stars*
+    (drawn yellow). No punctuation but quotes (the title-text rule). -> (html, font px, plain)"""
+    raw = (job.get("pain_hook") or "").strip()
+    assert raw, f"{job['key']}: the xpain arm needs pain_hook in job.json"
+    plain = raw.replace("*", "")
+    parts = raw.split("*")
+    h = "".join(f"<em>{html.escape(p)}</em>" if k % 2 else html.escape(p) for k, p in enumerate(parts))
+    return h, (60 if len(plain) <= 40 else 56 if len(plain) <= 52 else 50), plain
+
+
+def pain_swap(words, dur):
+    """The pain line holds about 3 s (Kallaway: under 3 s it loses its effect), then gives way on a word's start so
+    the change lands with the speech; never later than 3.6 s and always well before the scorecard."""
+    lo, hi = PAIN_HOLD
+    starts = [w["t"] for w in words if lo <= w["t"] <= hi]
+    return round(min(starts[0] if starts else 3.0, max(1.5, dur - 2.5)), 3)
 
 
 def build(job, dur, d, words):
@@ -722,6 +747,21 @@ def build(job, dur, d, words):
         boom_tag = (f'<audio id="fx0_boom" src="assets/{boom_src}" data-start="{max(0.0, pay - 0.012):.3f}" '
                     f'data-duration="{boom_dur:.3f}" data-track-index="20" data-volume="1"></audio>')
     hook, hook_px = title_of(job)
+    # xpain: the pain line owns frame 0, the matchup question takes its place at `swap`; other arms leave these empty
+    title2 = swap_js = swap_fx = cta_ans = pain_plain = ""
+    swap = None
+    if VARIANT == "xpain":
+        pain_h, pain_px, pain_plain = pain_of(job)
+        swap = pain_swap(words, dur)
+        title2 = f'<div id="title2"><span style="font-size:{hook_px}px">{hook}</span></div>'
+        hook, hook_px = pain_h, pain_px
+        swap_js = (f'tl.set("#title2", {{ autoAlpha: 0 }}, 0); tl.set("#title", {{ autoAlpha: 0 }}, {swap});'
+                   f' tl.set("#title2", {{ autoAlpha: 1 }}, {swap});'
+                   f' tl.fromTo("#title2 > span", {{ scale: 0.92 }}, {{ scale: 1, duration: 0.12, ease: "power2.out" }}, {swap});'
+                   f' tl.set("#title2", {{ autoAlpha: 0 }}, CARD);')
+        swap_fx = (f'<audio id="fx2_swap" src="assets/fx-click.wav" data-start="{max(0.0, swap - 0.0015):.4f}" '
+                   f'data-duration="0.1" data-track-index="22" data-volume="0.6"></audio>')
+        cta_ans = f'<div class="ans">{html.escape(PAIN_ANSWER)}</div>'
     sc = job["judge_response"]["judgment"]["scores"]
     avg = job["judge_response"]["averageScores"]
     side = {"A": ("participantA", job["a_name"]), "B": ("participantB", job["b_name"])}
@@ -741,13 +781,17 @@ def build(job, dur, d, words):
            "{{HOOK_HTML}}": hook, "{{HOOK_PX}}": str(hook_px), "{{MOTION}}": html.escape(job["motion"]),
            "{{CELL_A}}": cell("A"), "{{CELL_B}}": cell("B"), "{{ROWS}}": rows,
            "{{CALL}}": "Too close to call" if tie else f'{html.escape(v["w"])} wins',
-           "{{CALL_PX}}": str(min(96, int(1640 / (len("Too close to call" if tie else v["w"] + " wins") + 0))))}
+           "{{CALL_PX}}": str(min(96, int(1640 / (len("Too close to call" if tie else v["w"] + " wins") + 0)))),
+           "{{TITLE2}}": title2, "{{SWAP_JS}}": swap_js, "{{SWAP_FX}}": swap_fx, "{{CTA_ANS}}": cta_ans,
+           "{{CTA_CLASS}}": "pain" if cta_ans else ""}
     for k, val in rep.items():
         s = s.replace(k, val)
     assert "{{" not in s, re.findall(r"{{\w+}}", s)
     (d / "index.html").write_text(s)
     return v, {"card": f_card, "ask": f_ask, "boom": pay, "boom_on": "payoff" if pay is not None else "none",
-               "bed": bed_at, "total": total, "title": html.unescape(re.sub(r"<[^>]+>", "", hook)).replace("\xa0", " ")}
+               "bed": bed_at, "total": total, "title": html.unescape(re.sub(r"<[^>]+>", "", title2 or hook)).replace("\xa0", " "),
+               **({"pain_hook": pain_plain, "pain_until": swap, "viewer": job.get("viewer", ""), "answer": PAIN_ANSWER}
+                  if swap is not None else {})}
 
 
 def math_floor3(x):
