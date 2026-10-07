@@ -390,7 +390,7 @@ def main():
         return
 
     made = 0
-    for ex in exchanges:
+    for rank, ex in enumerate(exchanges, 1):  # the picker returns its best first
         key = f"{vid}_{int(ex['start'])}"
         why_not = "" if key not in ledger and 12 <= ex["end"] - ex["start"] <= 60 else "in the ledger or the wrong length"
         why_not = why_not or check(ex, words)
@@ -417,7 +417,7 @@ def main():
             continue
         ex["hook_topic"] = re.sub(r"[^\w' ]+", " ", ex["hook_topic"]).strip()  # on screen: no dashes, no punctuation
         job = {"key": key, "source": {"url": a.url, "id": vid, "title": title, "channel": channel, "t0": round(t0, 2)},
-               **ex, "picker": {"by": by, "at": time.strftime("%F %T"), "video": verdict_on_video["why"]},
+               **ex, "picker": {"by": by, "at": time.strftime("%F %T"), "rank": rank, "video": verdict_on_video["why"]},
                "words": cap, "judge_request": req, "judge_response": verdict}
         (d / "job.json").write_text(json.dumps(job, indent=1))
         # several brains run at once (render-farm feeder): merge with what the others wrote since we started
