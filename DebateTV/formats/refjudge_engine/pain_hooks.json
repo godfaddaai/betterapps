@@ -124,7 +124,8 @@
    "shape": "kallaway_pain",
    "true_because": "Todd: Candidate Trump, for years, would have said, not our fight. Why are you involved?",
    "side": "winner (Trump 57)",
-   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)"
+   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)",
+   "held": "10/7 by eye, never handed: a large MEET THE PRESS logo over the wide shot"
   },
   "aMcjxSThD54_761": {
    "pain_hook": "When you want the top spot and *they won't roll over*",
@@ -132,7 +133,8 @@
    "shape": "kallaway_pain",
    "true_because": "Peterson: To get to the top of any organization is an incredibly competitive enterprise. And the men that you're competing with are simply not going to roll over.",
    "side": "winner (Peterson 73)",
-   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)"
+   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)",
+   "held": "10/7 by eye, never handed: the key caption misheard (LIKE OTHER, for like men) and one caption wider than its bar"
   },
   "aMcjxSThD54_1040": {
    "pain_hook": "When your whole argument gets a flat *\"it's not true\"*",
@@ -140,7 +142,8 @@
    "shape": "sanchez",
    "true_because": "Newman: there are still men dominating our industries, our society, and therefore they've dictated the terms for so long that women have to battle to be like the man. Peterson: No, it's not true.",
    "side": "loser (Newman 50)",
-   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)"
+   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)",
+   "shipped": "I1008-37, 10/8 inbox"
   },
   "cxnz_zJ8PIU_2415": {
    "pain_hook": "When your friend says you *can't take your money with you*",
@@ -157,7 +160,8 @@
    "shape": "kallaway_pain",
    "true_because": "Dash: we had always felt that Biggie and Puff were copying us, always. Bet-David: You thought Biggie and Puff were copying you guys? Dash: No, they were.",
    "side": "winner (Dash 54)",
-   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)"
+   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)",
+   "shipped": "I1008-39, 10/8 inbox"
   },
   "xai35U9vo3Y_2918": {
    "pain_hook": "When they ask *what you're worth* and the answer is zero",
@@ -165,7 +169,8 @@
    "shape": "kallaway_pain",
    "true_because": "Bet-David: But the problem is, what's your net worth today? Dash: Zero, zero, zip.",
    "side": "winner (Dash 62)",
-   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)"
+   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)",
+   "shipped": "I1008-38, 10/8 inbox"
   },
   "yZYQpge1W5s_797": {
    "pain_hook": "When you say equal outcomes and they say *pathological*",
@@ -173,7 +178,8 @@
    "shape": "kallaway_pain",
    "true_because": "Lewis: you believe in equality of opportunity but not equality of outcome? Peterson: It isn't only that I don't believe in equality of outcome. I think it's an unbelievably pathological wish and doctrine.",
    "side": "loser (Lewis 52)",
-   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)"
+   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)",
+   "pulled": "10/7 independent eye review after hand-off (I1008-40, pulled with pull.py): caption bar on Peterson's chin in the tight close up, soft footage, and the line casts the viewer as arguing for equal outcomes when Lewis only asks"
   },
   "zzjTh9QfKvg_106": {
    "pain_hook": "When you call them out and they say *name one thing*",
@@ -181,7 +187,8 @@
    "shape": "sanchez",
    "true_because": "Student: You need to work on not doing confirmation bias. Kirk: Say one thing I said that was wrong, misleading, unfactual, not rooted in data. One thing.",
    "side": "loser (Student 36)",
-   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)"
+   "batch": "10/7: Instagram had not had this moment in 7 days (ask a106 with a195)",
+   "held": "10/7 rejected at render by caption sync: 5.9 s of speech with no caption (crosstalk)"
   },
   "zzjTh9QfKvg_341": {
    "pain_hook": "When they ask you to name *one place it ever worked*",
