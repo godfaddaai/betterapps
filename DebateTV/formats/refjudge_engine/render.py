@@ -711,6 +711,8 @@ def pain_of(job):
     plain = raw.replace("*", "")
     parts = raw.split("*")
     h = "".join(f"<em>{html.escape(p)}</em>" if k % 2 else html.escape(p) for k, p in enumerate(parts))
+    # a quoted phrase never breaks across the two lines (10/6: "did you read / it" split on the Noah piece)
+    h = re.sub(r"&quot;(.+?)&quot;", r"<u>&quot;\1&quot;</u>", h)
     return h, (60 if len(plain) <= 40 else 56 if len(plain) <= 52 else 50), plain
 
 
