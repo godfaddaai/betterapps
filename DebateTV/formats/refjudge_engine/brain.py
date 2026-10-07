@@ -89,7 +89,8 @@ STEP 2, find up to {n} exchanges, best first. Each one must pass every test:
    claim"), or when the question is whether a named person is lying.
 5. Stands alone. Someone who has never seen the video understands the question and both answers.
 6. About the take, never the person. Skip insults with no argument, pile-ons, anyone who looks or sounds like a
-   minor, sexually explicit talk, and anything that only works if you know an earlier part of the video.
+   minor, sexually explicit talk, swearing (the captions print every word), and anything that only works if you
+   know an earlier part of the video.
 Length, first word to last word: 10 to 18 seconds, never more than 19. Only the last 19 seconds ending on the
 payoff are played, so anything earlier is cut and your hook goes with it. A moment that needs more than 19 seconds
 is not a pick. No overlapping exchanges. Prefer moments with a person a 19 year old would recognise, but never
@@ -176,7 +177,8 @@ def ask_codex(prompt, schema, timeout):
 
 def claude_login():
     """The config dir of a Claude login with room for background work (the Max plan first), by ARENA's own rule.
-    The answer is reused for 10 minutes: accounts.py reads usage over the network and has taken over 2 minutes."""
+    The answer is reused for 30 minutes: accounts.py reads usage over the network and has taken 6 minutes. A login
+    that fills up meanwhile answers "usage limit" itself, which backs the feeder off."""
     if os.environ.get("BRAIN_CLAUDE_DIR"):
         return os.path.expanduser(os.environ["BRAIN_CLAUDE_DIR"])
     memo = pathlib.Path(os.path.expanduser("~/.render-farm/claude_login.json"))
@@ -184,7 +186,7 @@ def claude_login():
         last = json.loads(memo.read_text())
     except (OSError, ValueError):
         last = {}
-    if time.time() - last.get("at", 0) < 600:
+    if time.time() - last.get("at", 0) < 1800:
         return last["dir"]
     try:
         r = subprocess.run([sys.executable, ACCOUNTS, "pick", "--for", "task"], capture_output=True, text=True, timeout=300)
