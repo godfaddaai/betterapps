@@ -809,7 +809,11 @@ def band_open(words, job):
     ks = kill_span(words, want)
     if not ks:
         raise Rejected(f"band.open is not heard in the exchange: {want!r}")
-    return ks[0]
+    # a loose match can start a word early, on the tail of the sentence before ("...excuses why. What I don't get"):
+    # the cut opens on the line's own first word
+    norm = lambda w: re.sub(r"[^a-z0-9']", "", w.lower())
+    w0 = norm(want.split()[0])
+    return next((k for k in range(ks[0], ks[1] + 1) if norm(words[k]["w"]) == w0), ks[0])
 
 
 def band_word(w, first, proper):
@@ -818,7 +822,9 @@ def band_word(w, first, proper):
     low = t.lower()
     if low in ("i", "i'm", "i'll", "i've", "i'd"):
         return "I" + low[1:]
-    if t[:1].isupper() and (low in proper or (not first and not t.isupper())):
+    # only I and names keep a capital: the transcript's own line starts ("What I don't get") come through capitalised
+    # in the middle of a spoken sentence and the reference never capitalises those
+    if t[:1].isupper() and low in proper:
         return t
     return low
 
@@ -828,7 +834,8 @@ def band_captions(job, dur, words):
     over 0.6 s the word leaves 0.3 s after it ends. Hard swaps, no pop."""
     norm = lambda w: re.sub(r"[^a-z0-9']", "", w.lower())
     ws = [w for w in words if norm(w["w"]) not in ("uh", "um", "") and 0 <= w["t"] < dur]
-    proper = {norm(x) for n in (job["a_name"], job["b_name"]) for x in n.split() if x[:1].isupper()}
+    # a side is a name when every word of it is capitalised ("Jordan Peterson", not "Agnostic atheist" or "Mother of six")
+    proper = {norm(x) for n in (job["a_name"], job["b_name"]) if all(y[:1].isupper() for y in n.split()) for x in n.split()}
     # a word the transcript capitalises inside a sentence is a name
     for l in job["lines"]:
         toks = l["text"].split()
