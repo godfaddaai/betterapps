@@ -54,6 +54,21 @@ VARIANT = os.environ.get("REF_VARIANT", "")
 PAIN_HOLD = (2.7, 3.6)     # the pain line leaves on the first word that starts in this span, else at 3.0 s
 PAIN_ANSWER = "settle it 1 on 1. an AI ref scores who won"
 SUFFIX = f"-{VARIANT}" if VARIANT else ""
+# REF_VARIANT=xband (10/8, format 48_bandclip, asks a032 and a254): the clip plays in the frame of the week's breakout
+# debate clip, @americanrightnow's campus exchange (2.7M views on 1,449 followers, tiktok 7693333974957001998), read
+# frame by frame (ARENA output/format-48/reference.md): black page, the clip in a 904 x 855 window at (88, 632), a two
+# line title typed above it in Montserrat ExtraBold 44 px, one orange word at a time in Montserrat SemiBold over the
+# chest, a "Wait for it..." sticker for 3.0 s that leaves on a speaker change, the clip's own sound. Only two things
+# are ours: the clip (a judged exchange, `band` in job.json written by hand: the title's two lines and the words the
+# cut opens on) and the app as the answer (42's scorecard and ask, unchanged). 25 s or less in all.
+BANDF = VARIANT == "xband"
+CAP_RGB = (237, 172, 73)   # the reference's caption fill, the mean of its orange pixels on frame 0
+if BANDF:
+    WIN = (88, 632, 904, 856)      # the reference's window is 855 rows; 856 keeps the cut's height even for x264
+    WIN_AR = WIN[2] / WIN[3]
+    MAX_CLIP = 17.5                # + 3.66 s scorecard + 3.5 s ask = 24.7 s (the reference runs 23.5 s)
+    FACE_FRAC, FACE_Y = 0.32, 0.28  # the reference's faces: a third of the window, in its upper half, chest clear for the words
+STICK_HOLD = 3.0           # the reference's sticker: on at 7.03 s, off on the speaker cut at 10.0 s
 # parallel `npx --yes hyperframes` installs race in ~/.npm/_npx (ENOTEMPTY/ENOENT); use one fixed install when present
 _HF = pathlib.Path(os.environ.get("HF_BIN", "~/.local/hyperframes/node_modules/.bin/hyperframes")).expanduser()
 HF = [str(_HF)] if _HF.exists() else ["npx", "--yes", "hyperframes"]
@@ -333,7 +348,7 @@ def audit(rect, samples):
                 hit = True
             elif max(x0 - x, x + w - (x0 + cw)) / w > 0.1 or max(y0 - y, y + h - (y0 + ch)) / h > 0.1:
                 hit = True
-            elif any((px - x0) * sx > QA_RAIL[0] - 40 and WIN[1] + (py - y0) * sy > QA_RAIL[1] - 40 for px, py in marks):
+            elif any(WIN[0] + (px - x0) * sx > QA_RAIL[0] - 40 and WIN[1] + (py - y0) * sy > QA_RAIL[1] - 40 for px, py in marks):
                 hit = True
         bad += hit
     return bad, faceless
@@ -424,7 +439,7 @@ def cut_video(job, src, dst):
     if b - a < 0.75 * (job["end"] - job["start"]):
         raise Rejected(f"source section is cut short ({end:.1f}s of video for a {job['end'] - job['start']:.0f}s exchange)")
     # the crop plan is the slow part (face tracking at 6 fps); both hook variants of a job share it
-    cache = pathlib.Path(src).parent / "crops.json"
+    cache = pathlib.Path(src).parent / ("crops-band.json" if BANDF else "crops.json")
     stamp = [CROPS_VERSION, a, b, os.path.getmtime(src)]
     segs = json.loads(cache.read_text()).get("segs") if cache.exists() and json.loads(cache.read_text()).get("stamp") == stamp else None
     if segs is None:
@@ -650,12 +665,12 @@ def kill_span(words, kill, lines=None):
     return None
 
 
-def pick_window(words, kill, dur, limit=MAX_CLIP, lines=None):
+def pick_window(words, kill, dur, limit=MAX_CLIP, lines=None, first=None, last=None):
     """The stretch of the judged exchange that plays before the scorecard: (a, b) in the cut's own seconds.
     It opens and ends on a finished sentence, holds the payoff line (the kill phrase) and both voices where it can,
     and runs `limit` seconds or less where the exchange allows; an exchange already inside the limit plays whole.
     Sentence edges come from the words as spoken (capsync times), never from YouTube caption times."""
-    if not words or dur <= limit:
+    if not words or (dur <= limit and first is None):
         return 0.0, dur, 0, len(words) - 1
     # a sentence ends where the spoken word carries its full stop (whisper's or the transcript's punctuation); a
     # speaker or line change alone is not an edge: words at a hand-over are often tagged to the wrong side
@@ -664,8 +679,8 @@ def pick_window(words, kill, dur, limit=MAX_CLIP, lines=None):
     ks = kill_span(words, kill, lines)
     length = lambda i, j: (words[j]["e"] + TAIL) - max(0.0, words[i]["t"] - LEAD)
     best = None
-    for i in starts:
-        for j in ends:
+    for i in (starts if first is None else [first]):    # 48: the cut opens on the word written by hand
+        for j in (ends if last is None else [last]):
             if j <= i:
                 continue
             n = length(i, j)
@@ -786,9 +801,78 @@ def pain_swap(words, dur):
     return round(min(starts[0] if starts else 3.0, max(1.5, dur - 2.5)), 3)
 
 
+def band_open(words, job):
+    """48: the index of the word the cut opens on. `band.open` in job.json is the first words of the fight, written
+    by hand from the transcript: a whole line, never mid sentence (content read 10/8)."""
+    want = ((job.get("band") or {}).get("open") or "").strip()
+    assert want, f"{job['key']}: the band frame needs band.open in job.json"
+    ks = kill_span(words, want)
+    if not ks:
+        raise Rejected(f"band.open is not heard in the exchange: {want!r}")
+    return ks[0]
+
+
+def band_word(w, first, proper):
+    """A caption word as the reference types it: lower case, no punctuation, capitals only on I and on names."""
+    t = re.sub(r"[^A-Za-z0-9'’$%-]", "", w).replace("’", "'").strip("-'")
+    low = t.lower()
+    if low in ("i", "i'm", "i'll", "i've", "i'd"):
+        return "I" + low[1:]
+    if t[:1].isupper() and (low in proper or (not first and not t.isupper())):
+        return t
+    return low
+
+
+def band_captions(job, dur, words):
+    """48: one word at a time (the reference's captions), on from the word's onset until the next word; in a pause
+    over 0.6 s the word leaves 0.3 s after it ends. Hard swaps, no pop."""
+    norm = lambda w: re.sub(r"[^a-z0-9']", "", w.lower())
+    ws = [w for w in words if norm(w["w"]) not in ("uh", "um", "") and 0 <= w["t"] < dur]
+    proper = {norm(x) for n in (job["a_name"], job["b_name"]) for x in n.split() if x[:1].isupper()}
+    # a word the transcript capitalises inside a sentence is a name
+    for l in job["lines"]:
+        toks = l["text"].split()
+        for k, x in enumerate(toks):
+            if k and x[:1].isupper() and not re.search(r"[.?!]$", toks[k - 1]) and norm(x) not in ("i", "i'm", "i'll", "i've", "i'd"):
+                proper.add(norm(x))
+    caps, tl = [], []
+    for n, w in enumerate(ws):
+        a = 0.0 if n == 0 and w["t"] < 0.35 else w["t"]
+        nxt = ws[n + 1]["t"] if n + 1 < len(ws) else dur
+        b = nxt if nxt - w["e"] <= 0.6 else w["e"] + 0.3
+        b = min(max(b, a + 2 / 30), dur - 0.02)
+        first = n == 0 or bool(re.search(r"[.?!][\"')\]]*$", ws[n - 1]["w"]))
+        text = band_word(w["w"], first, proper)
+        if b <= a or not text:
+            continue
+        caps.append(f'<div class="cap" id="c{n}">{html.escape(text)}</div>')
+        tl.append(f'["#c{n}", {frame(a):.3f}, {frame(b):.3f}]')
+    return caps, tl
+
+
+def band_sticker(words, dur, kill):
+    """48: when the "Wait for it..." sticker shows. The reference: on at 0.30 of its clip for 3.0 s, off on the cut
+    to the other speaker, before the line that settles it. Ours leaves on the speaker change nearest 0.43 of the cut
+    that comes before the payoff (never in the first 2.5 s, where the title and the first line land)."""
+    ks = kill_span(words, kill)
+    k_at = words[ks[0]]["t"] if ks else dur
+    turns = [w["t"] for p, w in zip(words, words[1:]) if w["s"] != p["s"]]
+    ok = [t for t in turns if 2.5 + STICK_HOLD <= t <= min(k_at, dur - 1.0)]
+    off = min(ok, key=lambda t: abs(t - 0.43 * dur)) if ok else min(max(0.43 * dur, 2.5 + STICK_HOLD), dur - 0.5)
+    return frame(off - STICK_HOLD), frame(off)
+
+
+def band_title(job):
+    """48: the title's two lines exactly as written in job.json (`band.title`): the setup in plain words, the ending
+    held back, nobody crowned. 38 characters a line at most: the reference's longer line is 38 and ends at x 1018."""
+    t = (job.get("band") or {}).get("title") or []
+    assert len(t) == 2 and all(0 < len(x) <= 38 for x in t), f"{job['key']}: band.title is two lines of 38 characters or less: {t}"
+    return t
+
+
 def build(job, dur, d, words):
     v = verdict_bits(job)
-    caps, tl = captions(job, dur, words)
+    caps, tl = (band_captions if BANDF else captions)(job, dur, words)
     f_card = frame(dur)
     f_ask = frame(f_card + math_floor3(ASK_FRAMES / 30))
     total = round(f_ask + CTA, 2)
@@ -799,6 +883,8 @@ def build(job, dur, d, words):
     ks = kill_span(said, job["kill_phrase"])
     k_end = said[ks[1]]["e"] if ks else None
     pay = frame(k_end) if k_end is not None and dur - k_end >= PAYOFF_SNAP else None
+    if BANDF:
+        pay = None      # the clip plays on its own sound alone, as the reference does: no boom inside it
     bed_at = max(0.0, f_card - REVEAL_LEAD)
     bed_log = level_bed(d, dur, total - bed_at)
     boom_tag = ""
@@ -812,6 +898,12 @@ def build(job, dur, d, words):
         boom_tag = (f'<audio id="fx0_boom" src="assets/{boom_src}" data-start="{max(0.0, pay - 0.012):.3f}" '
                     f'data-duration="{boom_dur:.3f}" data-track-index="20" data-volume="1"></audio>')
     hook, hook_px = title_of(job)
+    stick = (0, 0)
+    if BANDF:
+        l1, l2 = band_title(job)
+        # line 2 opens with the reference's own leading space (its second line sits 13 px right of the first)
+        hook = f"{html.escape(l1)}\n {html.escape(l2)}"
+        stick = band_sticker(said_all(words, dur), dur, job["kill_phrase"])
     # xpain: the pain line owns frame 0, the matchup question takes its place at `swap`; other arms leave these empty
     title2 = swap_js = swap_fx = cta_ans = pain_plain = ""
     swap = None
@@ -837,7 +929,7 @@ def build(job, dur, d, words):
         f'<div class="r"><span>{sc["participantA"][k]}</span><div class="t l"><s class="ref1-a" data-v="{sc["participantA"][k] / 100:.2f}"></s></div>'
         f'<u>{lab}</u><div class="t rr"><s class="ref1-b" data-v="{sc["participantB"][k] / 100:.2f}"></s></div>'
         f'<span class="n2">{sc["participantB"][k]}</span></div>' for k, lab in CATS)
-    s = (HERE / "tpl/template.html").read_text()
+    s = (HERE / ("tpl/template_band.html" if BANDF else "tpl/template.html")).read_text()
     rep = {"{{CAPS}}": "\n      ".join(caps), "{{CAPTL}}": ",\n        ".join(tl),
            "{{VIDEO_DUR}}": f"{dur:.3f}", "{{TOTAL}}": f"{total:.2f}", "{{TAIL_DUR}}": f"{total - dur:.3f}",
            "{{F_CARD}}": f"{f_card:.3f}", "{{F_ASK}}": f"{f_ask:.3f}",
@@ -848,15 +940,21 @@ def build(job, dur, d, words):
            "{{CALL}}": "Too close to call" if tie else f'{html.escape(v["w"])} wins',
            "{{CALL_PX}}": str(min(96, int(1640 / (len("Too close to call" if tie else v["w"] + " wins") + 0)))),
            "{{TITLE2}}": title2, "{{SWAP_JS}}": swap_js, "{{SWAP_FX}}": swap_fx, "{{CTA_ANS}}": cta_ans,
-           "{{CTA_CLASS}}": "pain" if cta_ans else ""}
+           "{{CTA_CLASS}}": "pain" if cta_ans else "",
+           "{{STICK_ON}}": f"{stick[0]:.3f}", "{{STICK_OFF}}": f"{stick[1]:.3f}"}
     for k, val in rep.items():
         s = s.replace(k, val)
     assert "{{" not in s, re.findall(r"{{\w+}}", s)
     (d / "index.html").write_text(s)
     return v, {**bed_log, "card": f_card, "ask": f_ask, "boom": pay, "boom_on": "payoff" if pay is not None else "none",
-               "bed": bed_at, "total": total, "title": html.unescape(re.sub(r"<[^>]+>", "", title2 or hook)).replace("\xa0", " "),
+               "bed": bed_at, "total": total, "title": re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", "", title2 or hook)).replace("\xa0", " ")),
+               **({"frame": "band", "sticker": list(stick)} if BANDF else {}),
                **({"pain_hook": pain_plain, "pain_until": swap, "viewer": job.get("viewer", ""), "answer": PAIN_ANSWER}
                   if swap is not None else {})}
+
+
+def said_all(words, dur):
+    return [w for w in words if re.sub(r"[^a-z0-9']", "", w["w"].lower()) not in ("uh", "um", "") and 0 <= w["t"] < dur]
 
 
 def math_floor3(x):
@@ -906,7 +1004,18 @@ def render(jobdir):
         (dst / "spoken.json").write_text(json.dumps(spoken))
         # every word in the cut's own seconds, with its speaker and line; then the stretch that plays before the card
         words = [dict(w, t=w["t"] - job["start"], e=w["e"] - job["start"]) for w in aligned_words(job, spoken)]
-        a, b, i, j = pick_window(words, job["kill_phrase"], full, lines=job["lines"])
+        first = last = None
+        if BANDF:
+            # 48: a debate can be cut more than once, each cut with its own title, so the line that settles THIS cut
+            # (band.kill) and the words it ends on (band.close) can be written by hand next to the words it opens on
+            job["kill_phrase"] = (job["band"].get("kill") or job["kill_phrase"])
+            first = band_open(words, job)
+            if job["band"].get("close"):
+                ke = kill_span(words[first:], job["band"]["close"])
+                if not ke:
+                    raise Rejected(f"band.close is not heard after the opening line: {job['band']['close']!r}")
+                last = first + ke[1]
+        a, b, i, j = pick_window(words, job["kill_phrase"], full, lines=job["lines"], first=first, last=last)
         lines = job["lines"]
         if a > 0.01 or b < full - 0.01:
             dur = trim_cut(p / "full.mp4", p / "assets/cut.mp4", a, b)
@@ -933,7 +1042,8 @@ def render(jobdir):
                 time.sleep(90)
         final = dst / f"{key}.mp4"
         finish(p / "raw.mp4", final)
-    (dst / f"{key}.layout.json").write_text(json.dumps({"window": list(WIN), "clip_end": dur, "captions": list(BAND)}))
+    (dst / f"{key}.layout.json").write_text(json.dumps({"window": list(WIN), "clip_end": dur, "captions": list(BAND),
+                                                             **({"caption_rgb": list(CAP_RGB)} if BANDF else {})}))
     (dst / "cut.json").write_text(json.dumps({"exchange_s": full, "kept": [round(a, 2), round(b, 2)], "clip_s": dur, **marks,
                                               "both_voices": len({w["s"] for w in words}) > 1,
                                               "payoff_in": bool(kill_span(words, job["kill_phrase"], lines))}))

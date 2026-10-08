@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en" data-resolution="portrait">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@500;700;800;900&family=TikTok+Sans:wght@500;600;700;800&family=Montserrat:wght@600;800&family=Sofia+Sans+Extra+Condensed:wght@500&display=block" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1080px; height: 1920px; overflow: hidden; background: #060810; }
+      #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: #060810; font-family: Inter, system-ui, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+      /* 10/8, format 48_bandclip: the frame of @americanrightnow's campus exchange (2.7M views on 1,449 followers),
+         measured on its own frames (ARENA output/format-48/reference.md). Black page; the clip in a 904 x 855 window
+         at (88, 632); the title typed above it, flush left at x 61, in Montserrat ExtraBold 44 px on a 57 px pitch,
+         its second line opening with a space as the reference's does; one orange word at a time in Montserrat
+         SemiBold with a black outline, centred on x 540 with its baseline at y 1369; a white "Wait for it..." sticker
+         tilted 9 degrees over the chest. No pill, no scrim, no gradient, no glow, no brand type. The scorecard and the
+         ask after the clip are 42_refjudgeask's, unchanged. */
+      html, body, #root { background: #000 !important; }
+      #fplate { position: absolute; left: -60px; top: -100px; width: 1200px; height: 2120px; object-fit: cover; filter: blur(30px) brightness(1.45) saturate(1.2); }
+      #cam { position: absolute; left: 88px; top: 632px; width: 904px; height: 856px; overflow: hidden; }
+      #cam video { position: absolute; left: 0; top: 0; width: 904px; height: 856px; object-fit: cover; }
+      #title { position: absolute; left: 60px; top: 493px; width: 1019px; font-family: Montserrat, sans-serif; font-weight: 800; font-size: 44px; line-height: 57px; color: #fff; white-space: pre; text-align: left; }
+      .cap { position: absolute; left: 0; top: 1295px; width: 1080px; height: 100px; font-family: Montserrat, sans-serif; font-weight: 600; font-size: 70px; line-height: 100px; color: #EDAC49; -webkit-text-stroke: 9px #000; paint-order: stroke fill; text-shadow: 3px 4px 5px rgba(0,0,0,0.55); opacity: 0; text-align: center; white-space: nowrap; }
+      #wait { position: absolute; left: 379px; top: 1120px; width: 430px; height: 146px; border-radius: 24px; background: #fff; transform: rotate(-9deg); display: flex; align-items: center; justify-content: center; font-family: "Sofia Sans Extra Condensed", sans-serif; font-weight: 500; font-size: 80px; line-height: 1; color: #141414; white-space: nowrap; opacity: 0; }
+      #wait i { font-style: normal; font-size: 64px; margin-left: 4px; }
+      /* the verdict lands over the footage itself: a light shade and a blur, not a black screen */
+      #dim { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; background: rgba(6,8,16,0.1); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); opacity: 0; }
+
+      /* the REF's call, drawn the way the app's verdict screen draws it */
+      .ref { position: absolute; left: 100px; top: 380px; width: 800px; padding: 30px 38px 28px; background: #0B0E17; border: 2px solid #2B3042; border-radius: 40px; box-shadow: 0 30px 90px rgba(0,0,0,0.75); opacity: 0; }
+      .ref .hd { display: flex; align-items: center; gap: 14px; font-weight: 800; font-size: 24px; letter-spacing: 0.26em; color: #8E93A6; }
+      .ref .hd img { width: 52px; height: 52px; border-radius: 12px; display: block; }
+      .ref .q { margin-top: 16px; font-weight: 500; font-size: 34px; line-height: 1.25; color: #D5D8E3; }
+      .ref .who { margin-top: 26px; display: flex; align-items: flex-start; justify-content: space-between; }
+      .ref .p { width: 310px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+      .ref .p span { height: 84px; display: flex; align-items: flex-end; justify-content: center; font-family: Anton, sans-serif; font-size: 38px; line-height: 1.05; text-transform: uppercase; color: #fff; text-align: center; }
+      .ref .big { width: 310px; text-align: center; font-family: Anton, sans-serif; font-size: 170px; line-height: 1; color: #fff; }
+      .ref .p.w .big { color: #FFD60A; }
+      .ref .vs { padding-top: 150px; font-weight: 900; font-size: 30px; color: #5B6072; letter-spacing: 0.1em; }
+      .ref .call { margin-top: 14px; font-family: Anton, sans-serif; font-size: 96px; line-height: 1; color: #FFD60A; text-transform: uppercase; text-align: center; white-space: nowrap; }
+      .ref .rows { margin-top: 22px; border-top: 1px solid #232735; padding-top: 14px; }
+      .ref .r { display: grid; grid-template-columns: 76px 1fr 200px 1fr 76px; align-items: center; column-gap: 10px; height: 62px; font-weight: 800; font-size: 37px; color: #fff; }
+      .ref .r u { text-decoration: none; font-weight: 700; font-size: 23px; letter-spacing: 0.2em; color: #7C8196; text-align: center; }
+      .ref .r .n2 { text-align: right; }
+      .ref .t { position: relative; height: 18px; border-radius: 9px; background: #171B28; overflow: hidden; }
+      .ref .t s { position: absolute; top: 0; height: 18px; width: 100%; border-radius: 9px; }
+      .ref .t.l s { right: 0; background: #E5141E; transform-origin: right center; }
+      .ref .t.rr s { left: 0; background: #2997FF; transform-origin: left center; }
+
+      /* end card: same job as Umax's "get your own ratings" card; the blurred footage stays behind it */
+      #cta { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; background: rgba(6,8,16,0.28); -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px); opacity: 0; }
+      #cta h2 { position: absolute; left: 60px; top: 236px; width: 960px; font-family: Anton, sans-serif; font-weight: 400; font-size: 112px; line-height: 1.0; text-transform: uppercase; color: #fff; text-align: center; text-shadow: 0 6px 30px rgba(0,0,0,0.6); }
+      #cta h2 em { font-style: normal; color: #FFD60A; white-space: nowrap; }
+      #cta .shots { position: absolute; left: 80px; top: 500px; width: 840px; height: 800px; }
+      #cta .shots img { position: absolute; width: 420px; border-radius: 36px; border: 5px solid #2B3042; box-shadow: 0 24px 70px rgba(0,0,0,0.7); display: block; }
+      #cta .find { position: absolute; left: 60px; top: 1296px; width: 840px; display: flex; align-items: center; justify-content: center; gap: 24px; }
+      #cta .find > img { width: 170px; height: 170px; border-radius: 38px; display: block; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
+      #cta .find .nm { font-weight: 900; font-size: 64px; text-shadow: 0 3px 14px rgba(0,0,0,0.7); line-height: 1.05; color: #fff; }
+      #cta .badge { margin-top: 12px; display: inline-flex; align-items: center; gap: 12px; background: #000; border: 2px solid #A6A6A6; border-radius: 16px; padding: 8px 20px 9px 16px; }
+      #cta .badge i { font-style: normal; font-family: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif; font-size: 50px; line-height: 1; color: #fff; margin-top: -6px; }
+      #cta .badge span { display: block; font-family: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif; font-weight: 500; font-size: 19px; line-height: 1.1; color: #fff; }
+      #cta .badge span b { display: block; font-weight: 600; font-size: 36px; letter-spacing: -0.01em; }
+      /* xpain arm: one answer line to the pain under the ask; the phone shots move down and shrink to keep it clear */
+      #cta .ans { position: absolute; left: 60px; top: 470px; width: 960px; text-align: center; font-family: "TikTok Sans", Inter, sans-serif; font-weight: 700; font-size: 40px; line-height: 1.2; color: #fff; text-shadow: 0 3px 14px rgba(0,0,0,0.75); }
+      #cta.pain .shots { top: 548px; }
+      #cta.pain .shots img { width: 380px; }
+      #cta .arrow { position: absolute; left: 20px; top: 1318px; width: 120px; height: 110px; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="{{TOTAL}}" data-width="1080" data-height="1920">
+      <img id="fplate" src="assets/freeze.jpg" data-start="{{VIDEO_DUR}}" data-duration="{{TAIL_DUR}}" data-track-index="6" alt="" />
+      <div id="cam">
+        <video id="clip" src="assets/cut.mp4" data-start="0" data-duration="{{VIDEO_DUR}}" data-track-index="0" muted playsinline></video>
+      </div>
+      <div id="title">{{HOOK_HTML}}</div>
+      <div id="wait">Wait for it...<i>🤣</i></div>
+
+      {{CAPS}}
+
+      <div id="dim"></div>
+      <div class="ref" id="ref1">
+        <div class="hd"><img src="assets/dtv-icon.png" alt="" />THE VERDICT · AI REF</div>
+        <div class="q">“{{MOTION}}”</div>
+        <div class="who">{{CELL_A}}<div class="vs">VS</div>{{CELL_B}}</div>
+        <div class="call" style="font-size:{{CALL_PX}}px">{{CALL}}</div>
+        <div class="rows">{{ROWS}}</div>
+      </div>
+
+      <div id="cta" class="{{CTA_CLASS}}">
+        <h2>Get your own<br /><em>argument scored</em></h2>
+        {{CTA_ANS}}
+        <div class="shots">
+          <img src="assets/shot1.png" alt="" style="left: 16px; top: 36px; transform: rotate(-5deg);" />
+          <img src="assets/shot2.png" alt="" style="left: 424px; top: 0px; transform: rotate(4deg);" />
+        </div>
+        <svg class="arrow" viewBox="0 0 120 110"><path d="M10 14 C 14 70, 48 92, 96 84" fill="none" stroke="#FFD60A" stroke-width="10" stroke-linecap="round"/><path d="M74 60 L100 84 L70 104" fill="none" stroke="#FFD60A" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="find"><img src="assets/dtv-icon.png" alt="" /><div><div class="nm">DebateTV</div>
+          <div class="badge"><i>&#xF8FF;</i><span>Download on the<b>App Store</b></span></div></div></div>
+      </div>
+
+      <audio id="voice" src="assets/voice.wav" data-start="0" data-duration="{{VIDEO_DUR}}" data-track-index="10" data-volume="1"></audio>
+      <!-- audio map 3 (ARENA render-farm/audio/audio_map.json): the chain's sound with its hit 55 ms before the
+           scorecard's first frame (the Umax reel's own lead), one boom whose attack is on the frame the payoff's last
+           word ends and gone before the sound starts (no boom when there is no payoff: the drop is the hit), a click whose attack is on the ask's first frame -->
+      <audio id="bed" src="assets/chain-drop2.wav" data-start="{{BED_AT}}" data-duration="{{BED_DUR}}" data-track-index="14" data-volume="1"></audio>
+      {{BOOM_TAG}}
+      
+      <audio id="fx1_click" src="assets/fx-click.wav" data-start="{{CLICK_AT}}" data-duration="0.1" data-track-index="21" data-volume="1"></audio>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      const V = {{VIDEO_DUR}}, CARD = {{F_CARD}}, ASK = {{F_ASK}};
+      const caps = [
+        {{CAPTL}}
+      ];
+      // frame one is the post's cover: the title is at full strength (nothing tweens it); words swap on the frame, as
+      // the reference's do (no pop, no fade)
+      caps.forEach(([id, a, b]) => { tl.set(id, { autoAlpha: 1 }, a); tl.set(id, { autoAlpha: 0 }, b); });
+      tl.set("#wait", { autoAlpha: 1 }, {{STICK_ON}});
+      tl.set("#wait", { autoAlpha: 0 }, {{STICK_OFF}});
+
+      // the scorecard lands at full size on its first frame (a 2 frame settle, never a fade), bars fill
+      tl.set(["#title", "#wait", "#cam", ".cap"], { autoAlpha: 0 }, CARD);
+      tl.set("#dim", { opacity: 1 }, CARD);
+      tl.set("#ref1", { autoAlpha: 1 }, CARD);
+      tl.fromTo("#ref1", { scale: 1.035 }, { scale: 1, duration: 0.18, ease: "power3.out" }, CARD);
+      document.querySelectorAll(".ref1-a, .ref1-b").forEach((el) => {
+        tl.fromTo(el, { scaleX: parseFloat(el.dataset.v) * 0.55 }, { scaleX: parseFloat(el.dataset.v), duration: 0.4, ease: "power3.out" }, CARD);
+      });
+      // the ask: 8 beats of the sound after the drop, where the reference cuts
+      tl.set("#ref1", { autoAlpha: 0 }, ASK);
+      tl.set("#cta", { autoAlpha: 1 }, ASK);
+      tl.fromTo("#cta h2", { scale: 1.06 }, { scale: 1, duration: 0.2, ease: "power3.out" }, ASK);
+      tl.fromTo("#cta .shots img", { y: 60 }, { y: 0, duration: 0.35, ease: "back.out(1.6)", stagger: 0.08 }, ASK);
+      tl.to({}, { duration: 0.01 }, {{TOTAL}} - 0.01);
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>
