@@ -62,7 +62,7 @@ SUFFIX = f"-{VARIANT}" if VARIANT else ""
 # are ours: the clip (a judged exchange, `band` in job.json written by hand: the title's two lines and the words the
 # cut opens on) and the app as the answer (42's scorecard and ask, unchanged). 25 s or less in all.
 BANDF = VARIANT == "xband"
-CAP_RGB = (237, 172, 73)   # the reference's caption fill, the mean of its orange pixels on frame 0
+CAP_RGB = (240, 172, 58)   # the reference's caption fill at the core of its glyphs on frame 0 (the template's #F7AC37 renders as this)
 if BANDF:
     WIN = (88, 632, 904, 856)      # the reference's window is 855 rows; 856 keeps the cut's height even for x264
     WIN_AR = WIN[2] / WIN[3]
@@ -1037,6 +1037,13 @@ def render(jobdir):
             shutil.move(p / "full.mp4", p / "assets/cut.mp4")
             dur = full
             words = [dict(w, t=max(0.0, w["t"] - a), e=w["e"] - a) for w in words[i:j + 1]]
+        if BANDF:
+            # the 0.12 s of air before the first word can hold the tail of the sentence before ("...excuses why."), and
+            # the short cut's own transcript then opens on it: the first caption is the opening line's own first word
+            nm = lambda x: re.sub(r"[^a-z0-9']", "", x.lower())
+            w0 = nm(job["band"]["open"].split()[0])
+            k0 = next((k for k, w in enumerate(words[:4]) if nm(w["w"]) == w0 and w["t"] < 0.8), 0)
+            words = words[k0:]
         dur = math_floor3(int(dur * 30 + 1e-6) / 30)    # whole frames: the scorecard lands on the frame the clip ends
         sh(["ffmpeg", "-v", "error", "-y", "-sseof", "-0.2", "-i", str(p / "assets/cut.mp4"), "-frames:v", "1", "-q:v", "2", str(p / "assets/freeze.jpg")])
         v, marks = build(job, dur, p, words)

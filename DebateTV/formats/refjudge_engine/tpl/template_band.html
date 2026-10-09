@@ -13,7 +13,7 @@
          measured on its own frames (ARENA output/format-48/reference.md). Black page; the clip in a 904 x 855 window
          at (88, 632); the title typed above it, flush left at x 61, in Montserrat ExtraBold 44 px on a 57 px pitch,
          its second line opening with a space as the reference's does; one orange word at a time in Montserrat
-         SemiBold with a black outline, centred on x 540 with its baseline at y 1369; a white "Wait for it..." sticker
+         SemiBold (the fill renders 240, 172, 58 as the reference's glyph cores read) with a thin black outline and a soft shadow, centred on x 540 with its baseline at y 1369; a white "Wait for it..." sticker
          tilted 9 degrees over the chest. No pill, no scrim, no gradient, no glow, no brand type. The scorecard and the
          ask after the clip are 42_refjudgeask's, unchanged. */
       html, body, #root { background: #000 !important; }
@@ -21,7 +21,7 @@
       #cam { position: absolute; left: 88px; top: 632px; width: 904px; height: 856px; overflow: hidden; }
       #cam video { position: absolute; left: 0; top: 0; width: 904px; height: 856px; object-fit: cover; }
       #title { position: absolute; left: 60px; top: 493px; width: 1019px; font-family: Montserrat, sans-serif; font-weight: 800; font-size: 44px; line-height: 57px; color: #fff; white-space: pre; text-align: left; }
-      .cap { position: absolute; left: 0; top: 1295px; width: 1080px; height: 100px; font-family: Montserrat, sans-serif; font-weight: 600; font-size: 70px; line-height: 100px; color: #EDAC49; -webkit-text-stroke: 8px #000; paint-order: stroke fill; text-shadow: 2px 3px 6px rgba(0,0,0,0.6); opacity: 0; text-align: center; white-space: nowrap; }
+      .cap { position: absolute; left: 0; top: 1295px; width: 1080px; height: 100px; font-family: Montserrat, sans-serif; font-weight: 600; font-size: 70px; line-height: 100px; color: #F7AC37; -webkit-text-stroke: 7px #000; paint-order: stroke fill; text-shadow: 0 0 5px rgba(0,0,0,0.85), 2px 3px 6px rgba(0,0,0,0.6); opacity: 0; text-align: center; white-space: nowrap; }
       #wait { position: absolute; left: 377px; top: 1115px; width: 435px; height: 148px; border-radius: 24px; background: #fff; transform: rotate(-9deg); display: flex; align-items: center; justify-content: flex-start; padding: 8px 0 0 29px; font-family: "Sofia Sans Extra Condensed", sans-serif; font-weight: 400; font-size: 91px; letter-spacing: 0.5px; line-height: 1; color: #141414; white-space: nowrap; opacity: 0; }
       #wait i { font-style: normal; font-size: 82px; margin-left: 0; position: relative; top: 10px; }
       /* the verdict lands over the footage itself: a light shade and a blur, not a black screen */
