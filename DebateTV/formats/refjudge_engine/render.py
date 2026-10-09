@@ -871,9 +871,11 @@ def band_sticker(words, dur, kill):
 
 def band_title(job):
     """48: the title's two lines exactly as written in job.json (`band.title`): the setup in plain words, the ending
-    held back, nobody crowned. 38 characters a line at most: the reference's longer line is 38 and ends at x 1018."""
+    held back, nobody crowned. The reference's longer line is 38 characters and ends at x 1018: a line is checked
+    against that width in the title's own font before it gets here (ARENA output/format-48/titles.py), the shorter
+    line first where the words allow, as the reference has it."""
     t = (job.get("band") or {}).get("title") or []
-    assert len(t) == 2 and all(0 < len(x) <= 38 for x in t), f"{job['key']}: band.title is two lines of 38 characters or less: {t}"
+    assert len(t) == 2 and all(0 < len(x) <= 42 for x in t), f"{job['key']}: band.title is two lines of 42 characters or less: {t}"
     return t
 
 
