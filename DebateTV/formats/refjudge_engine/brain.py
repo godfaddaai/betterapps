@@ -42,13 +42,14 @@ SCHEMA = {
         "exchanges": {"type": "array", "items": {
             "type": "object", "additionalProperties": False,
             "required": ["start", "end", "motion", "matchup", "a_name", "b_name", "a_side", "b_side", "hook_topic",
-                         "kill_phrase", "retention", "lines"],
+                         "take_hook", "kill_phrase", "retention", "lines"],
             "properties": {
                 "start": {"type": "number"}, "end": {"type": "number"},
                 "motion": {"type": "string"}, "matchup": {"type": "string"},
                 "a_name": {"type": "string"}, "b_name": {"type": "string"},
                 "a_side": {"type": "string"}, "b_side": {"type": "string"},
-                "hook_topic": {"type": "string"}, "kill_phrase": {"type": "string"},
+                "hook_topic": {"type": "string"}, "take_hook": {"type": "string"},
+                "kill_phrase": {"type": "string"},
                 "retention": {"type": "string"},
                 "lines": {"type": "array", "items": {
                     "type": "object", "additionalProperties": False, "required": ["speaker", "start", "text"],
@@ -107,6 +108,7 @@ For each exchange give:
 - a_side / b_side: the position each one argues, in ten words or fewer
 - matchup: short, like "Ben Shapiro vs a Harris voter"
 - hook_topic: what they clash about as two to five plain words starting with "on", like "on the right to offend". It finishes the title "<matchup> <hook_topic>. Who won?", so it must be literally true of these lines, use words said in them, name the thing argued (never one side's claim stated as fact), mean something to a stranger, not hint who wins, and have no dashes or punctuation.
+- take_hook: the on-screen hook a stranger reads first (copy rule, 10/14): three to seven words, in plain spoken words a 19 year old would text, that state the take or the stakes of the fight, like "Should women skip *college*?" or "Bill Nye calls Ken Ham *100% wrong*". A yes/no question about the thing argued, or what one person dares say to the other. Mark the one or two words that sting with *stars*. Never the words "AI", "ref", "scored", "vs" or "debate", never a name the stranger would not know (use the role instead), never hint who wins, no dashes.
 - lines: every sentence in order, speaker A or B, its start time, and the text copied from the transcript (you may fix obvious caption typos; never add words that were not said, never join two half lines into one, copy crosstalk as it is). Line start times strictly increase.
 - kill_phrase: the 2-6 exact words that land the hardest
 - retention: why a viewer stays to the end, in one or two plain sentences with no dashes: quote the opening words that stop the scroll, name what is still unsettled in the middle, and say what the last line pays off.
@@ -630,6 +632,9 @@ def main():
             shutil.rmtree(d, ignore_errors=True)
             continue
         ex["hook_topic"] = re.sub(r"[^\w' ]+", " ", ex["hook_topic"]).strip()  # on screen: no dashes, no punctuation
+        ex["take_hook"] = re.sub(r"\s+-+\s+|\s*[\u2013\u2014]\s*", " ", ex.get("take_hook") or "").strip()
+        if len(re.findall(r"[\w'%]+", ex["take_hook"].replace("*", ""))) > 7:
+            ex["take_hook"] = ""   # over the copy rule's seven words: the title falls back to the matchup
         job = {"key": key, "source": {"url": a.url, "id": vid, "title": title, "channel": channel, "t0": round(t0, 2)},
                **ex, "picker": {"by": by, "at": time.strftime("%F %T"), "rank": rank, "video": verdict_on_video["why"],
                           "second_reader": read_by, "second_read": why2},

@@ -15,6 +15,13 @@ import html, json, math, os, pathlib, re, shutil, subprocess, sys, tempfile, tim
 
 import cv2
 
+try:   # the copy rule every format's words obey (ARENA render-farm/copy_rule.py, 10/14)
+    sys.path.insert(0, os.path.expanduser(os.environ.get("ARENA_FARM", "~/Documents/ARENA/render-farm")))
+    sys.path.insert(1, os.path.expanduser("~/render/farm"))
+    from copy_rule import check as copy_check
+except ImportError:
+    copy_check = lambda **k: []
+
 HERE = pathlib.Path(__file__).parent
 OUT = HERE / "out"
 W, H = 1920, 1080          # source frame the crop math assumes (scaled first if different)
@@ -759,24 +766,36 @@ def fit(text, big, small, limit):
 
 
 def title_of(job):
-    """The promise in words, at full strength on frame 0. Base: "AI ref scored <who> <on what>"; the xwho arm asks
-    "<who> <on what>. Who won?" (41_whowon's title). `hook_topic` in job.json is a short hand-written "on ..." that is
-    literally true of the kept clip; without it the title is the matchup alone. -> (html, font px)"""
+    """The promise in words, at full strength on frame 0. COPY RULE (ARENA render-farm/copy_rule.py, Reagan 10/14:
+    "the copywriting on a lot of it sucks"; "no one watching knows what you're talking about"): the hook is under
+    eight words and states the take or the stakes in the viewer's own words. `take_hook` in job.json (brain.py writes
+    it, a hand edit wins) is that line, its sting words marked with *stars* (drawn yellow): "Should women skip
+    *college*?". Without it the title falls back to "<who> <on what>. Who won?" (41_whowon's title) on every arm;
+    the old base arm's "AI ref scored <who>" is gone: a label, not a take, and "AI ref" means nothing to a stranger.
+    -> (html, font px)"""
+    take = (job.get("take_hook") or "").strip()
+    if take and VARIANT != "xband":
+        plain = take.replace("*", "")
+        bad = copy_check(hook=take)
+        if bad:
+            print(f"copy rule: {job.get('key')}: {'; '.join(bad)}", file=sys.stderr)
+        parts = take.split("*")
+        h = "".join(f"<em>{html.escape(p)}</em>" if k % 2 else html.escape(p) for k, p in enumerate(parts))
+        return h, (64 if len(plain) <= 30 else 60 if len(plain) <= 40 else 56 if len(plain) <= 46 else 50)
     who = re.sub(r"\s+vs\.?\s+", " vs ", job["matchup"].strip())
     who = who[:1].upper() + who[1:]
     topic = (job.get("hook_topic") or "").strip().rstrip(".?!")
     for tp in (topic, ""):
         mid = f"{who} {tp}".strip()
-        plain = f"{mid}. Who won?" if VARIANT in ("xwho", "xpain") else f"AI ref scored {mid}"
-        if len(plain) <= 80 or not tp:
+        plain = f"{mid}. Who won?"
+        if len(plain) <= 60 or not tp:
             break
     # a name never breaks across the two lines, and "Who won?" stays together
     # <u>, not <span>: the pill is styled by "#title > span" and a nested span must not become a pill of its own
     nb = lambda t: f'<u>{html.escape(t)}</u>'   # nowrap: also holds a hyphenated name together
     sides = [nb(x) for x in who.split(" vs ")]
     em = "<em>" + " vs ".join(sides) + "</em>" + (f" {html.escape(tp)}" if tp else "")
-    text = f"{em}. Who&nbsp;won?" if VARIANT in ("xwho", "xpain") else f"AI&nbsp;ref scored {em}"
-    return text, (54 if len(plain) <= 50 else 48 if len(plain) <= 60 else 42)
+    return f"{em}. Who&nbsp;won?", (54 if len(plain) <= 50 else 48 if len(plain) <= 60 else 42)
 
 
 def pain_of(job):
