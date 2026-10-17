@@ -198,7 +198,8 @@ Raw captions, 25 s BEFORE: {g(ex['start'] - 25, ex['start'])}
 Raw captions, THE PICK: {g(ex['start'], ex['end'] + 0.3)}
 Raw captions, 12 s AFTER: {g(ex['end'] + 0.3, ex['end'] + 12)}
 """)
-    got, by = ask(REVIEW.format(title=vid_title, channel=channel, picks="\n".join(blocks)), REVIEW_SCHEMA)
+    got, by = ask(REVIEW.format(title=vid_title, channel=channel, picks="\n".join(blocks)) + (WIRE_REVIEW if WIRE else ""),
+                  REVIEW_SCHEMA)
     return {p["key"]: (p["verdict"], p["why"].strip()) for p in got["picks"]}, by
 
 
@@ -328,6 +329,15 @@ candidate's claim and the other's direct rebuttal is enough; it need not trade l
 almost always has such a moment where one candidate answers the other by name, so return your best ones."""
 
 
+WIRE_REVIEW = """
+
+WIRE MODE. These picks come from a timed debate posted today and are cut as breaking news, the way a news desk clips
+a candidate's line and the other's comeback. Rule 4 reads: the last line is a whole sentence that lands a point about
+the question; timed answers run long, so more of the same answer after it does not make it WEAK. It is WEAK on 4 only
+when the last line stops mid thought, or the words after it show it was a setup ("but here's the thing"). Rule 3: a
+"he" or "she" in the first sentence that means the other candidate on stage is clear, since the title names both."""
+
+
 def check(ex, words):
     """What the picker claims, held against the transcript and the clock. -> "" when it stands, else why it is
     thrown out. (The length, turn and payoff tests came from the independent review of the first 21 picks, 10/7:
@@ -360,7 +370,7 @@ def check(ex, words):
             runs.append([l["speaker"], l["start"], t1])
     if len(runs) < (2 if WIRE else 3):     # wire mode: a claim and its rebuttal, both heard, is the news moment
         return "no back and forth (the speaker changes once)"
-    if runs[1][1] - t0 > 8:
+    if runs[1][1] - t0 > (10.5 if WIRE else 8):     # wire mode: a candidate's claim may run as long as any voice
         return f"no reply for {runs[1][1] - t0:.0f} s: the question is a speech"
     longest = max(e - b for _, b, e in runs)
     if longest > 10.5:
@@ -594,11 +604,18 @@ def main():
         info, words = fetch(a.url, pathlib.Path(tmp))
     vid, title, channel = info["id"], info.get("title", ""), info.get("channel", "")
     print(f"{vid}: {title} — {len(words)} caption words", file=sys.stderr)
-    try:
-        got, by = ask(PROMPT.format(title=title, channel=channel, n=a.max, transcript=transcript_text(words))
-                      + (WIRE_NOTE if a.wire else ""), SCHEMA)
-    except PickerDown as e:
-        sys.exit(f"picker down, {e}")  # the feeder reads "usage limit" here and backs off instead of failing the source
+    cache = HERE / "picks" / f"{vid}_wire.json"  # wire mode keeps its picks, so a rerun rereads them instead of rerolling
+    if a.wire and cache.exists():
+        got, by = json.loads(cache.read_text()), "cached picks"
+    else:
+        try:
+            got, by = ask(PROMPT.format(title=title, channel=channel, n=a.max, transcript=transcript_text(words))
+                          + (WIRE_NOTE if a.wire else ""), SCHEMA)
+        except PickerDown as e:
+            sys.exit(f"picker down, {e}")  # the feeder reads "usage limit" here and backs off instead of failing the source
+        if a.wire:
+            cache.parent.mkdir(exist_ok=True)
+            cache.write_text(json.dumps(got, indent=1))
     global WIRE
     WIRE = a.wire
     verdict_on_video, exchanges = got["debate"], got["exchanges"]
