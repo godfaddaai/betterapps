@@ -1,0 +1,44 @@
+{
+ "debate": {
+  "two_sided": true,
+  "why": "Senate candidates John Deaton and Ed Markey take opposite sides on health care, war, energy and the Supreme Court, and they rebut each other directly."
+ },
+ "exchanges": [
+  {
+   "start": 2265.5,
+   "end": 2278,
+   "motion": "Did you and AOC say we'd be dead in three years?",
+   "matchup": "John Deaton vs Ed Markey",
+   "a_name": "John Deaton",
+   "b_name": "Ed Markey",
+   "a_side": "The Green New Deal authors predicted doom that never came",
+   "b_side": "They predicted a crisis by 2030, and it's here",
+   "hook_topic": "on the crisis by 2030",
+   "take_hook": "Are we all *dead* in three years?",
+   "kill_phrase": "we're living that crisis now",
+   "retention": "The opening line, \"We're supposed to be dead in three years according to you and AOC,\" stops the scroll. The viewer then waits to see if Markey can get out from under the doomsday claim, and the last line turns it around by saying the crisis is already here.",
+   "lines": [
+    {
+     "speaker": "A",
+     "start": 2265.5,
+     "text": "We're supposed to be dead in three years according to you and AOC."
+    },
+    {
+     "speaker": "B",
+     "start": 2269,
+     "text": "No one ever said that."
+    },
+    {
+     "speaker": "B",
+     "start": 2270.5,
+     "text": "We just said that we'd have a crisis by the year 2030."
+    },
+    {
+     "speaker": "B",
+     "start": 2275,
+     "text": "And by the way, we're living that crisis now."
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,39 @@
+{
+ "debate": {
+  "two_sided": true,
+  "why": "Senator Susan Collins and challenger Troy Jackson argue opposite sides on Iran, tariffs, health care and ICE, and they rebut each other directly in a moderated debate."
+ },
+ "exchanges": [
+  {
+   "start": 1710.3,
+   "end": 1729.3,
+   "motion": "Could Senator Collins stop the funding for the Iran war?",
+   "matchup": "Troy Jackson vs Susan Collins",
+   "a_name": "Troy Jackson",
+   "b_name": "Susan Collins",
+   "a_side": "She can cut the war funding but won't",
+   "b_side": "The Iran war money was already appropriated",
+   "hook_topic": "on funding the Iran war",
+   "take_hook": "Could she just *defund* the war?",
+   "kill_phrase": "was already appropriated",
+   "retention": "It opens with \"I know very well how appropriations works,\" a direct charge that Collins could stop the war by cutting its funding and won't. The viewer waits to hear whether she has an answer, and her last line pays it off: the money had already been spent before any vote.",
+   "lines": [
+    {
+     "speaker": "A",
+     "start": 1710.3,
+     "text": "I know very well how appropriations works."
+    },
+    {
+     "speaker": "A",
+     "start": 1713,
+     "text": "And if she wants to stop the funding for it, she has the ability to stop the funding for it, but she's not willing to because she will not stand up against Donald Trump."
+    },
+    {
+     "speaker": "B",
+     "start": 1724.5,
+     "text": "Well, first of all, the money that was used for the Iran war was already appropriated."
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,121 @@
+{
+ "debate": {
+  "two_sided": true,
+  "why": "Peggy Flanagan and Michele Tafoya, the two U.S. Senate candidates, answer and rebut each other on opposite sides in a moderated debate."
+ },
+ "exchanges": [
+  {
+   "start": 1457.2,
+   "end": 1470.6,
+   "motion": "Is Donald Trump on the ballot in this race?",
+   "matchup": "Peggy Flanagan vs Michele Tafoya",
+   "a_name": "Peggy Flanagan",
+   "b_name": "Michele Tafoya",
+   "a_side": "A Trump endorsed candidate means Trump is effectively on the ballot",
+   "b_side": "Only the two candidates are on the ballot",
+   "hook_topic": "on Trump being on the ballot",
+   "take_hook": "Is *Trump* really on the ballot?",
+   "kill_phrase": "You and I are on the ballot",
+   "retention": "It opens with \"Donald Trump himself has told people, act as if I am on the ballot,\" so viewers want to know if that framing holds up. Flanagan ties Tafoya to the Trump endorsement, and the clip pays off when Tafoya fires back that only the two of them are on the ballot.",
+   "lines": [
+    {
+     "speaker": "A",
+     "start": 1457.2,
+     "text": "Donald Trump himself has told people, \"Act as if I am on the ballot.\""
+    },
+    {
+     "speaker": "A",
+     "start": 1461,
+     "text": "When you have one candidate who's endorsed by Donald Trump and it's Michelle Tafoya, I hope Minnesotans act accordingly."
+    },
+    {
+     "speaker": "B",
+     "start": 1468.6,
+     "text": "You and I are on the ballot, Peggy."
+    }
+   ]
+  },
+  {
+   "start": 2909,
+   "end": 2924.5,
+   "motion": "Can someone completely aligned with Donald Trump on abortion call themselves pro-choice?",
+   "matchup": "Peggy Flanagan vs Michele Tafoya",
+   "a_name": "Peggy Flanagan",
+   "b_name": "Michele Tafoya",
+   "a_side": "Being aligned with Trump on abortion rules out pro-choice",
+   "b_side": "She is a pro-choice Republican who took party heat",
+   "hook_topic": "on being a pro-choice Republican",
+   "take_hook": "Can a Trump Republican be *pro-choice*?",
+   "kill_phrase": "I have taken heat",
+   "retention": "It opens with \"You cannot call yourself completely aligned with Donald Trump on abortion and then somehow call yourself pro-choice,\" which dares the other side to answer. Until the end it's unclear whether Tafoya can square the two, and her last line pays off by pointing to the heat she has taken from her own party.",
+   "lines": [
+    {
+     "speaker": "A",
+     "start": 2909,
+     "text": "You cannot call yourself completely aligned with Donald Trump on abortion and then somehow call yourself pro-choice."
+    },
+    {
+     "speaker": "A",
+     "start": 2918.4,
+     "text": "It's"
+    },
+    {
+     "speaker": "B",
+     "start": 2919,
+     "text": "I am a pro-choice Republican."
+    },
+    {
+     "speaker": "B",
+     "start": 2921,
+     "text": "I have taken heat from my party over this issue."
+    }
+   ]
+  },
+  {
+   "start": 795,
+   "end": 811.6,
+   "motion": "Does it take bipartisanship to get us out of the debt?",
+   "matchup": "Michele Tafoya vs Peggy Flanagan",
+   "a_name": "Michele Tafoya",
+   "b_name": "Peggy Flanagan",
+   "a_side": "Bipartisanship caused the debt and must fix it",
+   "b_side": "Democrats are the ones who zeroed out the debt",
+   "hook_topic": "on getting out of the debt",
+   "take_hook": "Who actually fixes the *debt*?",
+   "kill_phrase": "it has been Democrats",
+   "retention": "It opens with \"Bipartisanship got us into this debt,\" a claim that sounds surprising enough to make people stop. Tafoya pitches herself as the person who reaches across the aisle, and Flanagan's comeback pays off by claiming Democrats are the ones who zeroed out the debt.",
+   "lines": [
+    {
+     "speaker": "A",
+     "start": 795,
+     "text": "Bipartisanship got us into this debt."
+    },
+    {
+     "speaker": "A",
+     "start": 797,
+     "text": "It's going to take bipartisanship to get us out."
+    },
+    {
+     "speaker": "A",
+     "start": 799.5,
+     "text": "We need to send someone to Washington who is willing to reach across the aisle and work with others."
+    },
+    {
+     "speaker": "A",
+     "start": 804.2,
+     "text": "That is me."
+    },
+    {
+     "speaker": "B",
+     "start": 805.2,
+     "text": "Every time we've zeroed out the debt, it has been Democrats."
+    },
+    {
+     "speaker": "B",
+     "start": 808.6,
+     "text": "So, we need to send Democrats to Washington, D.C."
+    }
+   ]
+  }
+ ]
+}

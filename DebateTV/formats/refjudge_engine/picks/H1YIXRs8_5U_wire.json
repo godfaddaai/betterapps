@@ -1,0 +1,49 @@
+{
+ "debate": {
+  "two_sided": true,
+  "why": "Congressman John James and Secretary of State Jocelyn Benson, the two candidates for Michigan governor, answer and rebut each other in a debate with a moderator."
+ },
+ "exchanges": [
+  {
+   "start": 1603.7,
+   "end": 1619.3,
+   "motion": "Will the plan for Michigan education be run by the DeVos family?",
+   "matchup": "John James vs Jocelyn Benson",
+   "a_name": "John James",
+   "b_name": "Jocelyn Benson",
+   "a_side": "Under Benson, education keeps the status quo and stays 45th",
+   "b_side": "James's plan gives Michigan education to the DeVos family",
+   "hook_topic": "on who runs education",
+   "take_hook": "Who should *run* Michigan's schools?",
+   "kill_phrase": "run by the DeVos family",
+   "retention": "The opening line 'With me, the buck stops here' plus the 'deer in headlights' jab makes viewers want to hear Benson's answer. Until she speaks, you can't tell if James's charge that she'll keep Michigan 45th will stand. Her last line hits back by saying his plan puts the DeVos family in charge of education instead of Michiganders.",
+   "lines": [
+    {
+     "speaker": "A",
+     "start": 1603.7,
+     "text": "With me, the buck stops here."
+    },
+    {
+     "speaker": "A",
+     "start": 1605.5,
+     "text": "With her, it's a deer in headlights."
+    },
+    {
+     "speaker": "A",
+     "start": 1607.8,
+     "text": "She absolutely will change nothing."
+    },
+    {
+     "speaker": "A",
+     "start": 1609.8,
+     "text": "She will keep the status quo, and we will remain 45th out of 50 or worse."
+    },
+    {
+     "speaker": "B",
+     "start": 1614.2,
+     "text": "I think your plan, it sounds like, is to have education run by the DeVos family, not by the people of Michigan."
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,59 @@
+{
+ "debate": {
+  "two_sided": true,
+  "why": "Andre Williams argues against Marc Lamont Hill and Brandon Tatum, with Piers Morgan moderating, and they rebut each other directly on race, reparations and Israel."
+ },
+ "exchanges": [
+  {
+   "start": 1146,
+   "end": 1161.3,
+   "motion": "Does Andre Williams speak for black people?",
+   "matchup": "Marc Lamont Hill vs Andre Williams",
+   "a_name": "Marc Lamont Hill",
+   "b_name": "Andre Williams",
+   "a_side": "Andre does not speak for black people",
+   "b_side": "He speaks for black people because he lives in the community",
+   "hook_topic": "on speaking for black people",
+   "take_hook": "Who gets to *speak for* black people?",
+   "kill_phrase": "you don't speak for me",
+   "retention": "It opens cold on \"You don't speak for black people,\" and Andre shoots straight back that he does because he lives in the community. Nobody knows who wins that claim until the man Andre says he speaks for answers him to his face: \"you don't speak for me.\"",
+   "lines": [
+    {
+     "speaker": "A",
+     "start": 1146,
+     "text": "You don't speak for black people."
+    },
+    {
+     "speaker": "B",
+     "start": 1147.5,
+     "text": "This is black people. I do speak for black people."
+    },
+    {
+     "speaker": "B",
+     "start": 1149.7,
+     "text": "As somebody And here's the big difference between myself and the two of you."
+    },
+    {
+     "speaker": "B",
+     "start": 1153,
+     "text": "I live in the community."
+    },
+    {
+     "speaker": "B",
+     "start": 1154.5,
+     "text": "I talk to black"
+    },
+    {
+     "speaker": "A",
+     "start": 1156.5,
+     "text": "said I'm the kind of black person you speak for."
+    },
+    {
+     "speaker": "A",
+     "start": 1159.3,
+     "text": "I'm telling you that you don't speak for me."
+    }
+   ]
+  }
+ ]
+}

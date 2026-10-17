@@ -1,0 +1,49 @@
+{
+ "debate": {
+  "two_sided": true,
+  "why": "Kathy Hochul and Bruce Blakeman, the two candidates for New York governor, argue opposite positions against each other in a moderated debate, with rebuttals and crosstalk."
+ },
+ "exchanges": [
+  {
+   "start": 2087.3,
+   "end": 2103.8,
+   "motion": "Is the wealth from Nassau County homes good for families?",
+   "matchup": "Bruce Blakeman vs Kathy Hochul",
+   "a_name": "Bruce Blakeman",
+   "b_name": "Kathy Hochul",
+   "a_side": "Rising home values created wealth for families",
+   "b_side": "Families trying to get a home are priced out",
+   "hook_topic": "on getting a home in Nassau County",
+   "take_hook": "Are pricey homes *wealth* or *out of reach*?",
+   "kill_phrase": "you're out of luck",
+   "retention": "It opens with \"I have created a quarter of a million dollars in wealth\", a big boast that makes you wonder who actually gains from it. The middle leaves open whether rising values help everyone, and the last line answers for the families trying to buy: \"you're out of luck.\"",
+   "lines": [
+    {
+     "speaker": "A",
+     "start": 2087.3,
+     "text": "I have created a quarter of a million dollars in wealth for you and your families."
+    },
+    {
+     "speaker": "A",
+     "start": 2091.3,
+     "text": "Kathy Hochul wants to take that away with taxes."
+    },
+    {
+     "speaker": "A",
+     "start": 2093.8,
+     "text": "I'm proud of the fact that I created that wealth for your family."
+    },
+    {
+     "speaker": "B",
+     "start": 2097.6,
+     "text": "Are OK to family trying to get a home in Nassau County."
+    },
+    {
+     "speaker": "B",
+     "start": 2100.5,
+     "text": "Again, if you're going to while dollars, you're out of luck."
+    }
+   ]
+  }
+ ]
+}

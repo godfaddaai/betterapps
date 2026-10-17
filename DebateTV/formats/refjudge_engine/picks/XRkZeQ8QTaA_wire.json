@@ -1,0 +1,44 @@
+{
+ "debate": {
+  "two_sided": true,
+  "why": "Senate candidates Dan Sullivan and Mary Peltola argue opposite sides on stage, rebutting and interrupting each other inside a moderated debate."
+ },
+ "exchanges": [
+  {
+   "start": 1511,
+   "end": 1529.5,
+   "motion": "Did Mary take Epstein money?",
+   "matchup": "Dan Sullivan vs Mary Peltola",
+   "a_name": "Dan Sullivan",
+   "b_name": "Mary Peltola",
+   "a_side": "Peltola took $140,000 in Epstein money",
+   "b_side": "That's a lie, Sullivan took Epstein money himself",
+   "hook_topic": "on Epstein money",
+   "take_hook": "Who took the *Epstein money*?",
+   "kill_phrase": "Dan Sullivan has taken $10,000",
+   "retention": "It opens on \"Mary took 140,000 in Epstein money,\" a charge a stranger wants to hear answered. Peltola cuts in right away, and for a few seconds nobody knows if she'll deny it or hit back. The last line turns the charge around: \"Dan Sullivan has taken $10,000.\"",
+   "lines": [
+    {
+     "speaker": "A",
+     "start": 1511,
+     "text": "Mary took 140,000 in Epstein money and paying her salary."
+    },
+    {
+     "speaker": "B",
+     "start": 1516.6,
+     "text": "That's a"
+    },
+    {
+     "speaker": "B",
+     "start": 1525,
+     "text": "That's a blatant lie."
+    },
+    {
+     "speaker": "B",
+     "start": 1527,
+     "text": "Dan Sullivan has taken $10,000."
+    }
+   ]
+  }
+ ]
+}

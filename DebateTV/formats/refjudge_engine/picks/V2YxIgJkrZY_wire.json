@@ -1,0 +1,49 @@
+{
+ "debate": {
+  "two_sided": true,
+  "why": "Senator Susan Collins and challenger Troy Jackson argue opposite sides in a moderated debate, with rebuttals and crosstalk between them."
+ },
+ "exchanges": [
+  {
+   "start": 2651.5,
+   "end": 2667.2,
+   "motion": "Should the Supreme Court grow beyond nine?",
+   "matchup": "Susan Collins vs a panelist",
+   "a_name": "A panelist",
+   "b_name": "Susan Collins",
+   "a_side": "Nine is not in the Constitution, so Congress can change it",
+   "b_side": "Adding seats would drag the Supreme Court into politics",
+   "hook_topic": "on the Supreme Court and politics",
+   "take_hook": "Should the Supreme Court get *bigger*?",
+   "kill_phrase": "insulated from politics",
+   "retention": "The opening words \"But nine's not in the Constitution\" stop the scroll, and Collins concedes the point, so it's unclear whether she has any comeback left. Her last line answers that adding seats would break the idea of a Supreme Court insulated from politics.",
+   "lines": [
+    {
+     "speaker": "A",
+     "start": 2651.5,
+     "text": "But nine's not in the Constitution."
+    },
+    {
+     "speaker": "A",
+     "start": 2653.5,
+     "text": "I think the it was the first five."
+    },
+    {
+     "speaker": "B",
+     "start": 2655.8,
+     "text": "It's not in the constitution."
+    },
+    {
+     "speaker": "A",
+     "start": 2657.6,
+     "text": "So you'd have the discretion,"
+    },
+    {
+     "speaker": "B",
+     "start": 2659.6,
+     "text": "but it's inconsistent with the whole idea of the Supreme Court being insulated from politics."
+    }
+   ]
+  }
+ ]
+}

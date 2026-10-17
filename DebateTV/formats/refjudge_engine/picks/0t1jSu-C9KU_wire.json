@@ -1,0 +1,44 @@
+{
+ "debate": {
+  "two_sided": true,
+  "why": "A team of liberals and a team of conservatives take turns at a podium, arguing opposite sides of each prompt face to face and fact checking each other."
+ },
+ "exchanges": [
+  {
+   "start": 2434,
+   "end": 2448.5,
+   "motion": "Do we need more laws to keep guns away from criminals?",
+   "matchup": "A conservative vs a liberal",
+   "a_name": "A conservative",
+   "b_name": "A liberal",
+   "a_side": "Gun laws for criminals already exist; enforce them",
+   "b_side": "Pass more laws to stop criminals getting guns",
+   "hook_topic": "on laws keeping guns from criminals",
+   "take_hook": "Do criminals need *more gun laws*?",
+   "kill_phrase": "a felony to illegally vote",
+   "retention": "The clip opens on \"Criminals should not have guns\", and both sides agree on that, so it isn't clear yet where they actually split. The conservative says it's already a felony for a criminal to have a gun, and the liberal hits back that illegal voting is a felony too.",
+   "lines": [
+    {
+     "speaker": "A",
+     "start": 2434,
+     "text": "Criminals should not have guns. Law-abiding Americans should."
+    },
+    {
+     "speaker": "B",
+     "start": 2437.5,
+     "text": "Agreed. That's my decision. So, why don't we pass laws to make sure that criminals are not getting guns. Why don't we make it harder?"
+    },
+    {
+     "speaker": "A",
+     "start": 2442.2,
+     "text": "We actually have a lot of those laws. It's currently a felony for a criminal to possess a gun."
+    },
+    {
+     "speaker": "B",
+     "start": 2446.3,
+     "text": "And it's a felony to illegally vote."
+    }
+   ]
+  }
+ ]
+}

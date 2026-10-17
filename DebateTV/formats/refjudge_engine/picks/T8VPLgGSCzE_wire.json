@@ -1,0 +1,44 @@
+{
+ "debate": {
+  "two_sided": true,
+  "why": "Senate candidates Jon Ossoff and Mike Collins argue opposite positions in a moderated debate, and in their timed rebuttals they answer each other by name."
+ },
+ "exchanges": [
+  {
+   "start": 2967.4,
+   "end": 2986.3,
+   "motion": "Should private firearm sales require a background check?",
+   "matchup": "Jon Ossoff vs Mike Collins",
+   "a_name": "Jon Ossoff",
+   "b_name": "Mike Collins",
+   "a_side": "Require background checks before every firearm sale or transfer",
+   "b_side": "Gun buyers already get background checks",
+   "hook_topic": "on background checks for gun sales",
+   "take_hook": "Background checks on *every* gun sale?",
+   "kill_phrase": "you have a background check",
+   "retention": "It opens with \"It's a simple background check before the sale or the transfer of a firearm\" and then asks why Mike Collins opposes it. Viewers stay to hear whether Collins can defend saying no, and he answers that buyers already get a background check at the store.",
+   "lines": [
+    {
+     "speaker": "A",
+     "start": 2967.4,
+     "text": "It's a simple background check before the sale or the transfer of a firearm."
+    },
+    {
+     "speaker": "A",
+     "start": 2973.7,
+     "text": "He just said he opposes that. Why?"
+    },
+    {
+     "speaker": "B",
+     "start": 2980.2,
+     "text": "We already have background checks."
+    },
+    {
+     "speaker": "B",
+     "start": 2981.9,
+     "text": "When you go into the store to buy a weapon, you have a background check."
+    }
+   ]
+  }
+ ]
+}

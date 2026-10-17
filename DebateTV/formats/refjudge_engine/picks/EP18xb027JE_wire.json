@@ -1,0 +1,111 @@
+{
+ "debate": {
+  "two_sided": true,
+  "why": "Piers Morgan and two guests argue against Andrew Wilson over whether the Fort Hood shooter's firing squad execution should be livestreamed, and they rebut and interrupt each other directly."
+ },
+ "exchanges": [
+  {
+   "start": 741,
+   "end": 756.6,
+   "motion": "Should we have seen how Bin Laden was shot?",
+   "matchup": "Piers Morgan vs Andrew Wilson",
+   "a_name": "Piers Morgan",
+   "b_name": "Andrew Wilson",
+   "a_side": "Hiding the killing avoided fuelling martyrdom",
+   "b_side": "Hiding the killing fuelled conspiracy theories",
+   "hook_topic": "on how Bin Laden was shot",
+   "take_hook": "Should we have *seen* Bin Laden die?",
+   "kill_phrase": "a bunch of conspiracy theories",
+   "retention": "The opening line, \"We never saw how Bin Laden was shot,\" hooks anyone who remembers that raid. Piers says hiding it stopped martyrdom, and that holds until Andrew comes back with the claim that the secrecy made people doubt SEAL Team 6 killed him at all.",
+   "lines": [
+    {
+     "speaker": "A",
+     "start": 741,
+     "text": "We never saw how Bin Laden was shot, for example, because it the decision"
+    },
+    {
+     "speaker": "A",
+     "start": 744.5,
+     "text": "The decision was taken, was it would act as a fuel to martyrdom and it would lead to"
+    },
+    {
+     "speaker": "B",
+     "start": 750,
+     "text": "lead to? It led to a bunch of conspiracy theories."
+    },
+    {
+     "speaker": "B",
+     "start": 752.5,
+     "text": "It led to the idea that SEAL Team 6 didn't actually kill him."
+    }
+   ]
+  },
+  {
+   "start": 2038.5,
+   "end": 2053,
+   "motion": "Is killing prisoners on camera murder?",
+   "matchup": "Jon Fugelsang vs Andrew Wilson",
+   "a_name": "Jon Fugelsang",
+   "b_name": "Andrew Wilson",
+   "a_side": "Killing prisoners on camera is murder",
+   "b_side": "Murder is unjustified killing, so this isn't murder",
+   "hook_topic": "on killing prisoners on camera",
+   "take_hook": "Is a filmed execution *murder*?",
+   "kill_phrase": "Murder's unjustified killing",
+   "retention": "The opening, \"Christian right-wing fundamentalist lunatics murdering their prisoners on camera,\" stops the scroll. Andrew's \"That's not murder\" leaves open what the word even means, and his last line settles it with his definition.",
+   "lines": [
+    {
+     "speaker": "A",
+     "start": 2038.5,
+     "text": "Christian right-wing fundamentalist lunatics murdering their prisoners on camera like Islamic right-wing fundamentalist lunatics."
+    },
+    {
+     "speaker": "B",
+     "start": 2047.4,
+     "text": "That's not murder. That's not That's not murder."
+    },
+    {
+     "speaker": "A",
+     "start": 2049.5,
+     "text": "In the case of Christian"
+    },
+    {
+     "speaker": "B",
+     "start": 2050.8,
+     "text": "Murder's unjustified killing, Fugelsang."
+    }
+   ]
+  },
+  {
+   "start": 1928.5,
+   "end": 1941.2,
+   "motion": "Should fear of terrorists stop us doing something just?",
+   "matchup": "Andrew Wilson vs Piers Morgan",
+   "a_name": "Andrew Wilson",
+   "b_name": "Piers Morgan",
+   "a_side": "Don't give up just policy over terrorists' reaction",
+   "b_side": "Don't give terrorists an excuse for their crazy",
+   "hook_topic": "on ceding ground to terrorists",
+   "take_hook": "Does fearing terrorists mean *ceding ground*?",
+   "kill_phrase": "ceding ground to terrorists",
+   "retention": "The opening, \"We're supposed to cede something that's just because then terrorists will do something,\" sets up a clear clash. Piers pushes back that it's about not giving them an excuse, and Andrew's last line turns that exact point back on him.",
+   "lines": [
+    {
+     "speaker": "A",
+     "start": 1928.5,
+     "text": "We're supposed to cede something that's just because then terrorists will do something that's unjust to us."
+    },
+    {
+     "speaker": "B",
+     "start": 1934,
+     "text": "No, it's more about It's more about not giving them an excuse for their crazy."
+    },
+    {
+     "speaker": "A",
+     "start": 1938.6,
+     "text": "That would actually be ceding ground to terrorists."
+    }
+   ]
+  }
+ ]
+}
