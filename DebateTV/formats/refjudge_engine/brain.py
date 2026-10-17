@@ -312,6 +312,22 @@ ASSENT = {"yes", "yeah", "yep", "no", "nope", "absolutely", "certainly", "okay",
 MAX_PICK = 19.5  # render.py plays 19 s or less ending on the payoff (MAX_CLIP): a longer pick loses its own hook
 
 
+# --wire (68_wirepost's news desk, 10/17): the clip goes out today as breaking news ("JUST IN: A vs B"), so the
+# moment the news is about is the pick, and a formal debate (timed answers, a moderator) is still a debate. The code
+# checks below hold except one: a claim and its rebuttal (A then B, both state a case) stands without a third turn.
+WIRE = False
+WIRE_NOTE = """
+
+WIRE MODE. This clip is posted today as breaking news, so the best pick is the moment the video's title and the news
+are about (the line everyone is quoting), when it passes the tests. A formal debate with a moderator counts as two
+sided when the two candidates or guests answer each other: look for the crosstalk, the rebuttals and the interruptions
+inside the timed answers, where both speak inside 19 seconds. A payoff may be a sharp line aimed at the other person
+when it is about the question they argue (test 4 and test 6 still rule out pure insults with no argument).
+In wire mode test 3 reads: the other side answers inside 8 seconds and no one talks for more than 10 seconds. One
+candidate's claim and the other's direct rebuttal is enough; it need not trade lines every 5 seconds. A timed debate
+almost always has such a moment where one candidate answers the other by name, so return your best ones."""
+
+
 def check(ex, words):
     """What the picker claims, held against the transcript and the clock. -> "" when it stands, else why it is
     thrown out. (The length, turn and payoff tests came from the independent review of the first 21 picks, 10/7:
@@ -342,7 +358,7 @@ def check(ex, words):
         if l["speaker"] != runs[-1][0]:
             runs[-1][2] = l["start"]
             runs.append([l["speaker"], l["start"], t1])
-    if len(runs) < 3:
+    if len(runs) < (2 if WIRE else 3):     # wire mode: a claim and its rebuttal, both heard, is the news moment
         return "no back and forth (the speaker changes once)"
     if runs[1][1] - t0 > 8:
         return f"no reply for {runs[1][1] - t0:.0f} s: the question is a speech"
@@ -569,6 +585,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("url")
     ap.add_argument("--max", type=int, default=12)
+    ap.add_argument("--wire", action="store_true", help="breaking news picks for 68_wirepost (see WIRE_NOTE)")
     ap.add_argument("--dry", action="store_true", help="print the picks and their reasons; judge, download and file nothing")
     a = ap.parse_args()
     ledger = json.loads(LEDGER.read_text()) if LEDGER.exists() else {}
@@ -578,9 +595,12 @@ def main():
     vid, title, channel = info["id"], info.get("title", ""), info.get("channel", "")
     print(f"{vid}: {title} — {len(words)} caption words", file=sys.stderr)
     try:
-        got, by = ask(PROMPT.format(title=title, channel=channel, n=a.max, transcript=transcript_text(words)), SCHEMA)
+        got, by = ask(PROMPT.format(title=title, channel=channel, n=a.max, transcript=transcript_text(words))
+                      + (WIRE_NOTE if a.wire else ""), SCHEMA)
     except PickerDown as e:
         sys.exit(f"picker down, {e}")  # the feeder reads "usage limit" here and backs off instead of failing the source
+    global WIRE
+    WIRE = a.wire
     verdict_on_video, exchanges = got["debate"], got["exchanges"]
     print(f"picker {by}: {'two sided' if verdict_on_video['two_sided'] else 'not a debate'}: {verdict_on_video['why']}", file=sys.stderr)
     if not verdict_on_video["two_sided"]:
