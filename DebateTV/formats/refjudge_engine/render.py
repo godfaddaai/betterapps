@@ -15,6 +15,12 @@ import html, json, math, os, pathlib, re, shutil, subprocess, sys, tempfile, tim
 
 import cv2
 
+# Intermediate cut encodes (cut_video, trim_cut) on the Mac's hardware encoder (10/19 bench, RENDER-SPEED-1019.md):
+# encode 12.8 s -> 1.7 s wall and 29 -> 4.7 CPU s on a loaded Air, final SSIM 0.994 vs libx264 crf15, every gate passed.
+# HyperFrames still makes the posted file with libx264. RENDER_CUT_ENC=x264 puts the old libx264 crf15 back.
+CUT_V = (["-c:v", "libx264", "-crf", "15"] if os.environ.get("RENDER_CUT_ENC", "vt") == "x264"
+         else ["-c:v", "h264_videotoolbox", "-q:v", "70"])
+
 try:   # the copy rule every format's words obey (ARENA render-farm/copy_rule.py, 10/14)
     sys.path.insert(0, os.path.expanduser(os.environ.get("ARENA_FARM", "~/Documents/ARENA/render-farm")))
     sys.path.insert(1, os.path.expanduser("~/render/farm"))
@@ -471,7 +477,7 @@ def cut_video(job, src, dst):
     graph = ";".join(vf) + f";{''.join(labels)}concat=n={len(labels)}:v=1:a=0[v];" \
             f"[0:a]atrim={a:.3f}:{b:.3f},asetpts=PTS-STARTPTS,loudnorm=I=-14:TP=-1.5[a]"
     sh(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-filter_complex", graph, "-map", "[v]", "-map", "[a]",
-        "-c:v", "libx264", "-crf", "15", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+        *CUT_V, "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
         "-movflags", "+faststart", str(dst)])
     return round(b - a, 2), len(labels)
 
@@ -718,7 +724,7 @@ def pick_window(words, kill, dur, limit=MAX_CLIP, lines=None, first=None, last=N
 
 
 def trim_cut(cut, dst, a, b):
-    sh(["ffmpeg", "-v", "error", "-y", "-i", str(cut), "-ss", f"{a:.3f}", "-to", f"{b:.3f}", "-c:v", "libx264", "-crf", "15",
+    sh(["ffmpeg", "-v", "error", "-y", "-i", str(cut), "-ss", f"{a:.3f}", "-to", f"{b:.3f}", *CUT_V,
         "-pix_fmt", "yuv420p", "-r", "30", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", str(dst)])
     return float(sh(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=duration", "-of",
                      "csv=p=0", str(dst)]).stdout.strip())
