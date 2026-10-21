@@ -198,7 +198,8 @@ Raw captions, 25 s BEFORE: {g(ex['start'] - 25, ex['start'])}
 Raw captions, THE PICK: {g(ex['start'], ex['end'] + 0.3)}
 Raw captions, 12 s AFTER: {g(ex['end'] + 0.3, ex['end'] + 12)}
 """)
-    got, by = ask(REVIEW.format(title=vid_title, channel=channel, picks="\n".join(blocks)) + (WIRE_REVIEW if WIRE else ""),
+    got, by = ask(REVIEW.format(title=vid_title, channel=channel, picks="\n".join(blocks)) + (WIRE_REVIEW if WIRE else "")
+                  + (EDIT_REVIEW if EDIT else ""),
                   REVIEW_SCHEMA)
     return {p["key"]: (p["verdict"], p["why"].strip()) for p in got["picks"]}, by
 
@@ -338,12 +339,39 @@ when the last line stops mid thought, or the words after it show it was a setup 
 "he" or "she" in the first sentence that means the other candidate on stage is clear, since the title names both."""
 
 
+# --edit (64_beatedit, ask a391 10/21): the pick is never played as a 19 s clip. It feeds a fan edit of ONE debater
+# (a 6 s open on one of their lines, then half second shots of them talking), which needs 20 to 60 s of the exchange.
+# The 19 s, hook-first and payoff-last rules starved the beat edit (0 fresh moments 10/21); two sides, the captions
+# and take-not-person hold as written. Jobs carry "mode": "edit" and the clip farm never renders them.
+EDIT = False
+EDIT_MAX = 60.5
+EDIT_NOTE = """
+
+EDIT MODE. These picks are not played as a 19 second clip. Each feeds a fan edit of ONE debater (the better known
+person in the exchange): a 6 second open on one sentence of theirs, then half second shots of them talking. So:
+Length, first word to last: 20 to 60 seconds (this replaces the 10 to 19 second rule). Tests 1, 5 and 6 hold as
+written. Test 3 reads: the other side answers inside 20 seconds and no one talks for more than 25 seconds. Tests 2
+and 4 read: the exchange starts on the start of a sentence and ends on a finished sentence. Inside it the better
+known person says one whole sentence of 3 to 6 seconds that lands on its own for a stranger (a claim, a comeback, a
+number); put its hardest 2 to 6 words in kill_phrase (it may be in any line, not only the last). Prefer the exchanges
+where that person makes their case the hardest."""
+
+
+EDIT_REVIEW = """
+
+EDIT MODE. These picks feed a fan edit of one debater, not a who won clip, and run 20 to 60 seconds. Rules 1, 2 and 6
+hold as written. Rules 3 and 4 read: the pick starts on the start of a sentence and ends on a finished sentence, and
+the kill phrase sits in one whole sentence a stranger gets on its own. Rule 5 holds for the title."""
+
+
 def check(ex, words):
     """What the picker claims, held against the transcript and the clock. -> "" when it stands, else why it is
     thrown out. (The length, turn and payoff tests came from the independent review of the first 21 picks, 10/7:
     all were real debates, but 16 ran past the 19 s that play and lost the opening they were picked for.)"""
     lines, t0, t1 = ex["lines"], ex["start"], ex["end"]
-    if not 8 <= t1 - t0 <= MAX_PICK:
+    if EDIT and not 20 <= t1 - t0 <= EDIT_MAX:
+        return f"{t1 - t0:.0f} s: an edit pick is 20 to 60"
+    if not EDIT and not 8 <= t1 - t0 <= MAX_PICK:
         return f"{t1 - t0:.0f} s: only 19 s play, a pick is 8 to 19"
     said = {}
     for l in lines:
@@ -370,10 +398,10 @@ def check(ex, words):
             runs.append([l["speaker"], l["start"], t1])
     if len(runs) < (2 if WIRE else 3):     # wire mode: a claim and its rebuttal, both heard, is the news moment
         return "no back and forth (the speaker changes once)"
-    if runs[1][1] - t0 > (10.5 if WIRE else 8):     # wire mode: a candidate's claim may run as long as any voice
+    if runs[1][1] - t0 > (20 if EDIT else 10.5 if WIRE else 8):     # wire mode: a candidate's claim may run as long as any voice
         return f"no reply for {runs[1][1] - t0:.0f} s: the question is a speech"
     longest = max(e - b for _, b, e in runs)
-    if longest > 10.5:
+    if longest > (25 if EDIT else 10.5):
         return f"one voice for {longest:.0f} s"
     # every line is what the captions say in its own stretch of time (a line stitched from elsewhere fails)
     for k, l in enumerate(lines):
@@ -384,6 +412,8 @@ def check(ex, words):
             return f"a line is not what the transcript says at {l['start']:.0f} s"
     kill = [norm(w) for w in ex["kill_phrase"].split() if norm(w)]
     last = [norm(w) for w in lines[-1]["text"].split() if norm(w)]
+    if EDIT:  # the edit's open line may be any of the debater's sentences
+        last = [norm(w) for l in lines for w in l["text"].split() if norm(w)]
     if not kill or not any(last[i:i + len(kill)] == kill for i in range(len(last))):
         return "the kill phrase is not in the last line: the payoff is not the end"
     if not ex["retention"].strip() or not ex["hook_topic"].strip():
@@ -596,6 +626,7 @@ def main():
     ap.add_argument("url")
     ap.add_argument("--max", type=int, default=12)
     ap.add_argument("--wire", action="store_true", help="breaking news picks for 68_wirepost (see WIRE_NOTE)")
+    ap.add_argument("--edit", action="store_true", help="20 to 60 s picks for 64_beatedit's fan edit (see EDIT_NOTE)")
     ap.add_argument("--dry", action="store_true", help="print the picks and their reasons; judge, download and file nothing")
     a = ap.parse_args()
     ledger = json.loads(LEDGER.read_text()) if LEDGER.exists() else {}
@@ -610,14 +641,14 @@ def main():
     else:
         try:
             got, by = ask(PROMPT.format(title=title, channel=channel, n=a.max, transcript=transcript_text(words))
-                          + (WIRE_NOTE if a.wire else ""), SCHEMA)
+                          + (WIRE_NOTE if a.wire else "") + (EDIT_NOTE if a.edit else ""), SCHEMA)
         except PickerDown as e:
             sys.exit(f"picker down, {e}")  # the feeder reads "usage limit" here and backs off instead of failing the source
         if a.wire:
             cache.parent.mkdir(exist_ok=True)
             cache.write_text(json.dumps(got, indent=1))
-    global WIRE
-    WIRE = a.wire
+    global WIRE, EDIT
+    WIRE, EDIT = a.wire, a.edit
     verdict_on_video, exchanges = got["debate"], got["exchanges"]
     print(f"picker {by}: {'two sided' if verdict_on_video['two_sided'] else 'not a debate'}: {verdict_on_video['why']}", file=sys.stderr)
     if not verdict_on_video["two_sided"]:
@@ -650,7 +681,7 @@ def main():
             l["start"] = snap(words, l["start"], l["text"])
         ex["start"] = ex["lines"][0]["start"]  # open on the question itself, never on leftover words
         ex["end"] = snap_end(words, ex)
-        if ex["end"] - ex["start"] > MAX_PICK:
+        if ex["end"] - ex["start"] > (EDIT_MAX if EDIT else MAX_PICK):
             print(f"skip {key}: {ex['end'] - ex['start']:.0f} s once snapped to the captions", file=sys.stderr); continue
         # caption words for this exchange, each tagged with whoever's line it falls in
         span = [(t, w) for t, w in words if ex["start"] - 0.05 <= t <= ex["end"] + 0.05]
@@ -672,7 +703,7 @@ def main():
         ex["take_hook"] = re.sub(r"\s+-+\s+|\s*[\u2013\u2014]\s*", " ", ex.get("take_hook") or "").strip()
         if len(re.findall(r"[\w'%]+", ex["take_hook"].replace("*", ""))) > 7:
             ex["take_hook"] = ""   # over the copy rule's seven words: the title falls back to the matchup
-        job = {"key": key, "source": {"url": a.url, "id": vid, "title": title, "channel": channel, "t0": round(t0, 2)},
+        job = {"key": key, **({"mode": "edit"} if EDIT else {}), "source": {"url": a.url, "id": vid, "title": title, "channel": channel, "t0": round(t0, 2)},
                **ex, "picker": {"by": by, "at": time.strftime("%F %T"), "rank": rank, "video": verdict_on_video["why"],
                           "second_reader": read_by, "second_read": why2},
                "words": cap, "judge_request": req, "judge_response": verdict}
