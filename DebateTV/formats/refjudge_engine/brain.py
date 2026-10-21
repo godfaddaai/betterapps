@@ -675,7 +675,8 @@ def main():
             sys.exit(f"picker down, {e}")
     for key, rank, ex in stood:
         verdict2, why2 = read.get(key, ("PULL", "the second reader gave no verdict"))
-        if verdict2 != "KEEP":
+        if verdict2 != "KEEP" and not (EDIT and verdict2 == "WEAK"):   # WEAK fails only the clip's hook and window
+            # rules (3 to 5); beatedit picks its own open sentence and gates it, so an edit pick stops only on PULL
             print(f"skip {key}: second reader, {verdict2.lower()}: {why2}", file=sys.stderr); continue
         for l in ex["lines"]:
             l["start"] = snap(words, l["start"], l["text"])
