@@ -24,7 +24,7 @@ LEDGER = HERE / "ledger.json"
 JUDGE = "https://debatetvbackend-production.up.railway.app/judge"
 PAD = 0.6  # seconds of source kept either side of the exchange
 # the Codex config default can be a model a ChatGPT login cannot use ("gpt-6.1-sol", 9/30): name it explicitly
-MODEL = os.environ.get("BRAIN_MODEL", "gpt-5.5")
+MODEL = os.environ.get("BRAIN_MODEL", "gpt-5.6-sol")  # 11/5: gpt-5.5 and gpt-6-sol are refused on his ChatGPT login
 # the picker when Codex is out. "pick" reads a whole transcript and judges what holds a viewer; "bulk" sorts titles.
 CLAUDE_MODELS = {"pick": os.environ.get("BRAIN_CLAUDE_MODEL", "claude-opus-5-5"),
                  "bulk": os.environ.get("BRAIN_CLAUDE_BULK", "claude-haiku-4-5-20251001")}
