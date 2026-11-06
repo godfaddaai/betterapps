@@ -1073,6 +1073,10 @@ def judge(ex):
     return body, json.load(urllib.request.urlopen(req, timeout=180))
 
 
+# "auto" (default): plain captions first, speaker labels only for a video that kept nothing; "1" always; "0" never
+DIARIZE = os.environ.get("BRAIN_DIARIZE", "auto")
+
+
 def main():
     ap = argparse.ArgumentParser()
     if "--recut-stats" in sys.argv[1:]:
@@ -1098,7 +1102,7 @@ def main():
     else:
         try:
             global SEGS
-            SEGS = [] if os.environ.get("BRAIN_DIARIZE", "0") != "1" else diarize.turns(vid, sys.stderr)
+            SEGS = diarize.turns(vid, sys.stderr) if DIARIZE == "1" else []
             set_voices(words)
             rapid = diarize.rapid_stretches(SEGS, words, voices=voice_of(words)) if SEGS else []
             print(f"diarizer: {len(SEGS)} segments, {len({s for *_, s in SEGS})} voices, {len(rapid)} rapid stretches",
@@ -1227,6 +1231,13 @@ def main():
                 print(f"edit {key}: second reader, {verdict3.lower()}: {why3}", file=sys.stderr)
                 ex["edit"] = True   # edit_from: the one weak pick it was widened around
                 kept.append((key, 0, ex, f"{read3_by} (edit from weak)", why3))
+    if not kept and DIARIZE == "auto" and verdict_on_video["two_sided"] and exchanges and not a.wire:
+        # auto: plain captions kept nothing, so the same video again with speaker labels (on 10 rapid videos the
+        # plain windows kept 11 and labels 4, but labels kept 2 on koC8A86BS2k where plain kept 0): labels only add
+        print(f"auto diarize: 0 kept from {len(exchanges)} plain exchanges, again with speaker labels", file=sys.stderr)
+        sys.stderr.flush(); sys.stdout.flush()
+        os.execve(sys.executable, [sys.executable, os.path.abspath(__file__), *sys.argv[1:]],
+                  {**os.environ, "BRAIN_DIARIZE": "1"})
     if a.dry_read:
         print(json.dumps({"video": {"id": vid, "title": title}, "first_read": {k: list(v) for k, v in read.items()},
                           "kept": [{"key": k, "recut": bool(ex.get("recut")), "renamed": ex.get("renamed_from"),
