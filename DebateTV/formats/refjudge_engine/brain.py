@@ -239,6 +239,38 @@ CAPTIONS, 25 s before its start to 25 s after its end (each line starts with its
 
 Only return the JSON."""
 
+RECUT_LOG = pathlib.Path(os.path.expanduser("~/.render-farm/recut_ledger.jsonl"))
+
+
+def note_recut(key, outcome, dry, why="", src=None):
+    """One line per end recut step (11/6, j704): the gate's real yield per day, read by `brain.py --recut-stats`.
+    key is the recut's own key once it has one; src is always the pick it was cut from. Outcomes: failed, no_cut,
+    check, weak, pull, read_keep (the second reader kept it) and filed (its job.json is written)."""
+    try:
+        RECUT_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with RECUT_LOG.open("a") as f:
+            f.write(json.dumps({"at": time.strftime("%F %T"), "key": key, "src": src or key, "outcome": outcome, "dry": dry,
+                                "why": why[:300]}) + "\n")
+    except OSError:
+        pass   # the ledger is a count, never a reason to drop a pick
+
+
+def recut_stats():
+    """Recuts tried and kept per day from the ledger (live runs; dry reads counted apart)."""
+    days = {}
+    for line in RECUT_LOG.read_text().splitlines() if RECUT_LOG.exists() else ():
+        try:
+            r = json.loads(line)
+            day, outcome = str(r["at"])[:10], str(r["outcome"])
+        except (ValueError, KeyError, TypeError):
+            continue   # a bad line never stops the count
+        d = days.setdefault((day, "dry" if r.get("dry") else "live"), {})
+        d[outcome] = d.get(outcome, 0) + 1
+    for (day, kind), c in sorted(days.items()):
+        tried = sum(v for k, v in c.items() if k != "filed")
+        print(f"{day} {kind}: {tried} tried, {c.get('read_keep', 0)} kept by the second reader, {c.get('filed', 0)} filed  " +
+              ", ".join(f"{k} {v}" for k, v in sorted(c.items())))
+
 
 def recut_end(title, channel, ex, why, words):
     """The picker's recut of a pick the second reader faulted only for its end -> the new exchange, or None."""
@@ -673,7 +705,11 @@ def judge(ex):
 
 def main():
     ap = argparse.ArgumentParser()
+    if "--recut-stats" in sys.argv[1:]:
+        return recut_stats()
     ap.add_argument("url")
+    ap.add_argument("--recut-stats", action="store_true", help="print end recuts tried, read-kept and filed per day "
+                    "from ~/.render-farm/recut_ledger.jsonl, then stop (no url needed)")
     ap.add_argument("--max", type=int, default=12)
     ap.add_argument("--wire", action="store_true", help="breaking news picks for 68_wirepost (see WIRE_NOTE)")
     ap.add_argument("--edit", action="store_true", help="20 to 60 s picks for 64_beatedit's fan edit (see EDIT_NOTE)")
@@ -736,17 +772,19 @@ def main():
         try:
             cut, cut_by = recut_end(title, channel, ex, why2, words)
         except Exception as e:   # a failed recut drops only the recut, never the picks already kept
-            print(f"recut {key}: failed, {e}", file=sys.stderr); continue
+            print(f"recut {key}: failed, {e}", file=sys.stderr); note_recut(key, "failed", a.dry_read, str(e)); continue
         if not cut:
-            print(f"recut {key}: the picker found no cut that passes every test", file=sys.stderr); continue
+            print(f"recut {key}: the picker found no cut that passes every test", file=sys.stderr)
+            note_recut(key, "no_cut", a.dry_read, why2); continue
         key2 = f"{vid}_{int(cut['start'])}"
         others = [e for k, _, e in stood if k != key] + [e for _, _, e in recut]
         why_not = ("already in the ledger" if key2 in ledger else
                    "overlaps another pick" if any(cut["start"] < o["end"] and o["start"] < cut["end"] for o in others)
                    else check(cut, words))
         if why_not:
-            print(f"recut {key} -> {key2}: {why_not}", file=sys.stderr); continue
+            print(f"recut {key} -> {key2}: {why_not}", file=sys.stderr); note_recut(key, "check", a.dry_read, why_not); continue
         print(f"recut {key} -> {key2}: {cut['start']:.1f} to {cut['end']:.1f} s, to the second reader again", file=sys.stderr)
+        cut["recut_from"] = key
         recut.append((key2, rank, cut))
     if recut:
         try:
@@ -756,8 +794,10 @@ def main():
         for key, rank, ex in recut:
             verdict2, why2, _ = read2.get(key, ("PULL", "the second reader gave no verdict", []))
             if verdict2 != "KEEP":     # once: a recut that is not a fresh KEEP is dropped, never recut again
-                print(f"skip {key}: recut, second reader, {verdict2.lower()}: {why2}", file=sys.stderr); continue
+                print(f"skip {key}: recut, second reader, {verdict2.lower()}: {why2}", file=sys.stderr)
+                note_recut(key, verdict2.lower(), a.dry_read, why2, ex.get("recut_from")); continue
             print(f"recut {key}: second reader, keep: {why2}", file=sys.stderr)
+            note_recut(key, "read_keep", a.dry_read, why2, ex.get("recut_from"))
             ex["recut"] = True
             kept.append((key, rank, ex, f"{read2_by} (recut end)", why2))
     if a.dry_read:
@@ -799,6 +839,8 @@ def main():
                           "second_reader": read_by, "second_read": why2},
                "words": cap, "judge_request": req, "judge_response": verdict}
         (d / "job.json").write_text(json.dumps(job, indent=1))
+        if ex.get("recut"):
+            note_recut(key, "filed", False, "", ex.get("recut_from"))
         # several brains run at once (render-farm feeder): merge with what the others wrote since we started
         ledger = {**(json.loads(LEDGER.read_text()) if LEDGER.exists() else {}), key: {"title": title, "motion": ex["motion"]}}
         tmp = LEDGER.with_suffix(f".{os.getpid()}.tmp")
