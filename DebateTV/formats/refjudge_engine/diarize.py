@@ -123,10 +123,10 @@ def speaker_at(segs, t):
     return best
 
 
-def rapid_stretches(segs, words, max_len=19.0, min_turns=3):
+def rapid_stretches(segs, words, max_len=19.0, min_turns=3, voices=None):
     """Windows of at most max_len seconds holding min_turns+ voice changes between two voices who each say 6+ words:
     where a short clash lives. -> [(t0, t1, n_changes)] best first, non overlapping."""
-    spk = [(t, speaker_at(segs, t)) for t, _ in words]
+    spk = list(zip([t for t, _ in words], voices)) if voices else [(t, speaker_at(segs, t)) for t, _ in words]
     spk = [(t, s) for t, s in spk if s]
     runs = []
     for t, s in spk:

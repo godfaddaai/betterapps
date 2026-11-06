@@ -778,10 +778,8 @@ def pick_windows(title, channel, words, n, note=""):
     return {"debate": verdict, "exchanges": exs}, got[0][1]
 
 
-def voice_of(words):
-    """Each caption word's voice from the diarizer ("" without one): bisect on the segment starts."""
-    if not SEGS:
-        return [""] * len(words)
+def _raw_voices(words):
+    """Each word's voice: the diarizer segment holding its time, else the nearest within 1.5 s ("" none)."""
     import bisect
     starts = [a for a, _, _ in SEGS]
     out = []
@@ -795,11 +793,76 @@ def voice_of(words):
                 if d < gap:
                     best, gap = sp, d
         out.append(best)
-    # a one word blip of another voice inside a run is crosstalk or a diarizer slip: it keeps its neighbours' voice
-    for k in range(1, len(out) - 1):
-        if out[k] != out[k - 1] and out[k - 1] == out[k + 1]:
-            out[k] = out[k - 1]
     return out
+
+
+def smooth_voices(words, out, min_words=3, min_secs=1.0, reach=1.5):
+    """Clean word voices (11/6, j1088): j946's test put raw diarizer tags in front of the picker and the second reader,
+    and the reader pulled picks because "the voice tags break in the middle of sentences" (3w4PLc2r0Yc_1081,
+    MPXLCKZVz14_675). 1) a run of another voice shorter than min_words words or min_secs seconds is crosstalk or a
+    diarizer slip and keeps its neighbours' voice; 2) every remaining change of voice moves to the nearest real turn
+    point within reach seconds: a ">>" caption turn mark first, else a sentence end, else a pause of 0.6 s or more."""
+    out = list(out)
+    for k in range(len(out)):          # words with no voice take the one before them
+        if not out[k] and k:
+            out[k] = out[k - 1]
+    def runs():
+        r = []
+        for k, v in enumerate(out):
+            if r and r[-1][0] == v:
+                r[-1][2] = k
+            else:
+                r.append([v, k, k])
+        return r
+    changed = True
+    while changed:
+        changed = False
+        rs = runs()
+        for n, (v, a, b) in enumerate(rs):
+            short = b - a + 1 < min_words or words[b][0] - words[a][0] < min_secs
+            if short and len(rs) > 1:
+                fill = rs[n - 1][0] if n else rs[n + 1][0]
+                for k in range(a, b + 1):
+                    out[k] = fill
+                changed = True
+                break
+    def turn_point(k):   # 2 = caption turn mark, 1 = sentence end or pause before word k, 0 = none
+        w = words[k][1]
+        if w.startswith(">>") or w in ("-", "--") or (k and words[k - 1][1] in ("-", "--")):
+            return 2   # ">>" auto-caption turn marks; "- " opens a new speaker in hand-made captions
+        if k and (words[k - 1][1][-1:] in ".?!" or words[k][0] - words[k - 1][0] >= 0.6):
+            return 1
+        return 0
+    rs = runs()
+    for n in range(1, len(rs)):
+        b = rs[n][1]                   # first word of the new voice
+        lo, hi = rs[n - 1][1] + 1, rs[n][2]
+        cands = [k for k in range(lo, hi + 1) if abs(words[k][0] - words[b][0]) <= reach and turn_point(k)]
+        if not cands or turn_point(b) == 2:
+            continue
+        k = min(cands, key=lambda k: (-turn_point(k), abs(words[k][0] - words[b][0])))
+        for x in range(min(k, b), max(k, b)):
+            out[x] = rs[n - 1][0] if k > b else rs[n][0]
+    return out
+
+
+VOICE_CACHE = {}
+
+
+def voice_of(words):
+    """Each caption word's voice from the diarizer ("" without one), cleaned by smooth_voices over the whole video
+    once (set_voices) and looked up per word, so a window or a pick reads the same tags."""
+    if not SEGS:
+        return [""] * len(words)
+    if not VOICE_CACHE:
+        return smooth_voices(words, _raw_voices(words))
+    return [VOICE_CACHE.get((t, w), "") for t, w in words]
+
+
+def set_voices(words):
+    VOICE_CACHE.clear()
+    if SEGS:
+        VOICE_CACHE.update({(t, w): v for (t, w), v in zip(words, smooth_voices(words, _raw_voices(words)))})
 
 
 def voices_note():
@@ -810,7 +873,7 @@ def rapid_note(part):
     """The diarizer's fast stretches inside this window, as a reading hint (empty without the diarizer)."""
     if not SEGS or not part:
         return ""
-    rapid = [r for r in diarize.rapid_stretches(SEGS, part)]
+    rapid = [r for r in diarize.rapid_stretches(SEGS, part, voices=voice_of(part))]
     return RAPID.format(stretches="\n".join(f"{x:.1f} to {y:.1f} s: {c} changes of voice" for x, y, c in rapid)) if rapid else ""
 
 
@@ -869,7 +932,7 @@ def stretch_pass(title, channel, words, have, most=8):
     """A second, focused read (11/6, ask a357): the first read over a whole video returned 1 to 3 picks however many
     fast stretches the diarizer found (7WjuYFgseDQ: 1 pick, 20 stretches). The picker gets only the busiest stretches
     it did not already pick from, each whole with 25 s before and 12 s after, and rules on each. -> new exchanges."""
-    rapid = diarize.rapid_stretches(SEGS, words)
+    rapid = diarize.rapid_stretches(SEGS, words, voices=voice_of(words))
     free = [r for r in sorted(rapid, key=lambda r: -r[2])
             if not any(r[0] < e["end"] and e["start"] < r[1] for e in have)][:most]
     if not free:
@@ -1034,7 +1097,8 @@ def main():
         try:
             global SEGS
             SEGS = [] if os.environ.get("BRAIN_DIARIZE", "1") == "0" else diarize.turns(vid, sys.stderr)
-            rapid = diarize.rapid_stretches(SEGS, words) if SEGS else []
+            set_voices(words)
+            rapid = diarize.rapid_stretches(SEGS, words, voices=voice_of(words)) if SEGS else []
             print(f"diarizer: {len(SEGS)} segments, {len({s for *_, s in SEGS})} voices, {len(rapid)} rapid stretches",
                   file=sys.stderr)
             got, by = pick_windows(title, channel, words, a.max, (WIRE_NOTE if a.wire else "") + (EDIT_NOTE if a.edit else ""))
