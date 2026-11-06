@@ -104,7 +104,7 @@ invent who is speaking: if the hook or the payoff could be either speaker, skip 
 For each exchange give:
 - start / end in seconds. start is the first word of the hook. end is the moment the last word of the payoff finishes, and nothing after it: no "okay", no first words of the reply.
 - motion: the question they are arguing, as a short yes/no question, using only nouns said inside the pick
-- a_name / b_name: A = the person who speaks first. Use real names only when the title or transcript makes them certain (e.g. the famous host named in the title). Otherwise use a short description like "Harris voter" or "Student": what they say they are, or the side they argue ("a panelist" when unsure). Never a political label they did not use themselves, never their race, never a first name that is not spoken in the pick, never a word about their body or health.
+- a_name / b_name: A = the person who speaks first. The second reader sees only the captions from 25 seconds before the pick to 12 seconds after it, and throws out any name or label those captions do not say, even one in the video title. So use a real name only when that name is spoken in those captions (the famous host of the channel too). Otherwise use a short description built from words said in those captions, like "Student" or "Harris voter": what they say they are, or the side they argue ("a panelist" when unsure). Never a role, faith or job label ("apologist", "feminist", "Objectivist") the captions do not say. Never a political label they did not use themselves, never their race, never a first name that is not spoken in the pick, never a word about their body or health.
 - a_side / b_side: the position each one argues, in ten words or fewer
 - matchup: short, like "Ben Shapiro vs a Harris voter"
 - hook_topic: what they clash about as two to five plain words starting with "on", like "on the right to offend". It finishes the title "<matchup> <hook_topic>. Who won?", so it must be literally true of these lines, use words said in them, name the thing argued (never one side's claim stated as fact), mean something to a stranger, not hint who wins, and have no dashes or punctuation.
@@ -252,6 +252,34 @@ def recut_stats():
         tried = sum(v for k, v in c.items() if k != "filed")
         print(f"{day} {kind}: {tried} tried, {c.get('read_keep', 0)} kept by the second reader, {c.get('filed', 0)} filed  " +
               ", ".join(f"{k} {v}" for k, v in sorted(c.items())))
+
+
+SOURCES = pathlib.Path(os.path.expanduser("~/.render-farm/sources.json"))
+
+
+def kept_stats():
+    """Kept clips per day (11/6, ask a262 "report kept clips per day before and after"): from the feeder's
+    sources.json, each mined video's day and the jobs brain.py filed on it. The ranking (rapid back-and-forth shows
+    first) and the routing (formal debates to --edit) live in the feeder, ARENA render-farm/feeder.py kind() and
+    next_source(), merged 11/6 in ARENA PR #37; this report is how their yield is read. Split by the feeder's route (clip = the
+    19 s picker on rapid and other shows, edit = formal debates sent through --edit; '-' = mined before routing)."""
+    import datetime
+    try:
+        vids = json.loads(SOURCES.read_text()).get("videos", {})
+    except (OSError, ValueError):
+        return print(f"no feeder sources at {SOURCES}")
+    days = {}
+    for v in vids.values():
+        if not v.get("mined"):
+            continue
+        day = datetime.date.fromtimestamp(v["mined"]).isoformat()
+        d = days.setdefault(day, {})
+        r = d.setdefault(v.get("route") or "-", [0, 0])
+        r[0] += 1
+        r[1] += v.get("jobs") or 0
+    for day, d in sorted(days.items()):
+        mined, kept = sum(x[0] for x in d.values()), sum(x[1] for x in d.values())
+        print(f"{day}: {kept} kept of {mined} videos  " + ", ".join(f"{k} {x[1]}/{x[0]}" for k, x in sorted(d.items())))
 
 
 def caption_recut(ex, words):
@@ -713,7 +741,11 @@ def main():
     ap = argparse.ArgumentParser()
     if "--recut-stats" in sys.argv[1:]:
         return recut_stats()
+    if "--kept-stats" in sys.argv[1:]:
+        return kept_stats()
     ap.add_argument("url")
+    ap.add_argument("--kept-stats", action="store_true", help="print kept clips per day and per feeder route from "
+                    "~/.render-farm/sources.json, then stop (no url needed)")
     ap.add_argument("--recut-stats", action="store_true", help="print end recuts tried, read-kept and filed per day "
                     "from ~/.render-farm/recut_ledger.jsonl, then stop (no url needed)")
     ap.add_argument("--max", type=int, default=12)
