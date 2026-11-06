@@ -254,6 +254,34 @@ def recut_stats():
               ", ".join(f"{k} {v}" for k, v in sorted(c.items())))
 
 
+SOURCES = pathlib.Path(os.path.expanduser("~/.render-farm/sources.json"))
+
+
+def kept_stats():
+    """Kept clips per day (11/6, ask a262 "report kept clips per day before and after"): from the feeder's
+    sources.json, each mined video's day and the jobs brain.py filed on it. The ranking (rapid back-and-forth shows
+    first) and the routing (formal debates to --edit) live in the feeder, ARENA render-farm/feeder.py kind() and
+    next_source(), merged 11/6 in ARENA PR #37; this report is how their yield is read. Split by the feeder's route (clip = the
+    19 s picker on rapid and other shows, edit = formal debates sent through --edit; '-' = mined before routing)."""
+    import datetime
+    try:
+        vids = json.loads(SOURCES.read_text()).get("videos", {})
+    except (OSError, ValueError):
+        return print(f"no feeder sources at {SOURCES}")
+    days = {}
+    for v in vids.values():
+        if not v.get("mined"):
+            continue
+        day = datetime.date.fromtimestamp(v["mined"]).isoformat()
+        d = days.setdefault(day, {})
+        r = d.setdefault(v.get("route") or "-", [0, 0])
+        r[0] += 1
+        r[1] += v.get("jobs") or 0
+    for day, d in sorted(days.items()):
+        mined, kept = sum(x[0] for x in d.values()), sum(x[1] for x in d.values())
+        print(f"{day}: {kept} kept of {mined} videos  " + ", ".join(f"{k} {x[1]}/{x[0]}" for k, x in sorted(d.items())))
+
+
 def caption_recut(ex, words):
     """The end recut from the captions alone (11/6, ask a346): the second reader said the payoff runs straight on into
     more of the same reply, so the end moves to where that speaker's sentence finishes in the caption words (a . ? !
@@ -713,7 +741,11 @@ def main():
     ap = argparse.ArgumentParser()
     if "--recut-stats" in sys.argv[1:]:
         return recut_stats()
+    if "--kept-stats" in sys.argv[1:]:
+        return kept_stats()
     ap.add_argument("url")
+    ap.add_argument("--kept-stats", action="store_true", help="print kept clips per day and per feeder route from "
+                    "~/.render-farm/sources.json, then stop (no url needed)")
     ap.add_argument("--recut-stats", action="store_true", help="print end recuts tried, read-kept and filed per day "
                     "from ~/.render-farm/recut_ledger.jsonl, then stop (no url needed)")
     ap.add_argument("--max", type=int, default=12)
