@@ -653,6 +653,43 @@ end.
 {stretches}"""
 
 
+STRETCHES = """
+
+THIS TRANSCRIPT IS ONLY THE FAST STRETCHES. The video was already ruled two sided. Below are only the stretches of it
+where the diarizer heard the voice change three or more times inside 19 seconds, each with the lines around it, cut
+out of the video in time order ("..." marks the cut between two stretches). Read every stretch whole and return the
+exchange it holds when one passes every test (most hold none: zero is still a correct answer). An exchange never
+crosses a "..."."""
+
+
+def stretch_pass(title, channel, words, have, most=8):
+    """A second, focused read (11/6, ask a357): the first read over a whole video returned 1 to 3 picks however many
+    fast stretches the diarizer found (7WjuYFgseDQ: 1 pick, 20 stretches). The picker gets only the busiest stretches
+    it did not already pick from, each whole with 25 s before and 12 s after, and rules on each. -> new exchanges."""
+    rapid = diarize.rapid_stretches(SEGS, words)
+    free = [r for r in sorted(rapid, key=lambda r: -r[2])
+            if not any(r[0] < e["end"] and e["start"] < r[1] for e in have)][:most]
+    if not free:
+        return []
+    wins = []
+    for x, y, _ in sorted(free):
+        x, y = x - 25, y + 12
+        if wins and x <= wins[-1][1]:
+            wins[-1][1] = max(wins[-1][1], y)
+        else:
+            wins.append([x, y])
+    text = "\n...\n".join(transcript_text([(t, w) for t, w in words if x <= t <= y]) for x, y in wins)
+    try:
+        got, by = ask(PROMPT.format(title=title, channel=channel, n=len(free), transcript=text, voices=VOICES)
+                      + STRETCHES, SCHEMA)
+    except Exception as e:   # the first read stands on its own
+        print(f"stretch pass failed: {str(e)[:160]}", file=sys.stderr)
+        return []
+    new = [e for e in got.get("exchanges", []) if not any(e["start"] < h["end"] and h["start"] < e["end"] for h in have)]
+    print(f"stretch pass {by}: {len(free)} stretches in {len(wins)} windows, {len(new)} new exchanges", file=sys.stderr)
+    return new
+
+
 def norm(w):
     return re.sub(r"[^a-z0-9']", "", w.lower())
 
@@ -809,6 +846,8 @@ def main():
             cache.write_text(json.dumps(got, indent=1))
     global WIRE, EDIT
     WIRE, EDIT = a.wire, a.edit
+    if SEGS and got["debate"]["two_sided"] and not (a.wire or a.edit):
+        got["exchanges"] += stretch_pass(title, channel, words, got["exchanges"])
     verdict_on_video, exchanges = got["debate"], got["exchanges"]
     print(f"picker {by}: {'two sided' if verdict_on_video['two_sided'] else 'not a debate'}: {verdict_on_video['why']}", file=sys.stderr)
     if not verdict_on_video["two_sided"]:
