@@ -517,6 +517,30 @@ def beatedit_spec(key, job, src):
         shutil.rmtree(sd, ignore_errors=True)
 
 
+SHORT_BEATS = re.compile(r"only (\d+) distinct moments of the edited debater")
+ROLE_NAME = re.compile(r"^(a |an |the )?(student|reporter|producer|prosecutor|panelist|audience|caller|host|guest|participant|"
+                       r"woman|man|feminist|christian|catholic|muslim|atheist|challenger)\b|(student|participant|woman|man|"
+                       r"debater|critic|filmmaker|member|advocate|christian|conservative|liberal|voter|supporter|fan|panelist"
+                       r"|challenger)$", re.I)
+
+
+def lends(outcome, why, job):
+    """True when beatedit refused only for too few moments of a full-named person (never a role: two "a panelist"
+    jobs are not one face) and at least 4 of 15: one to three partner jobs can lend the rest of the beats."""
+    m = SHORT_BEATS.search(why or "") if outcome == "refused" else None
+    if not m or int(m.group(1)) < 4:
+        return False
+    try:
+        v = job["judge_response"]["averageScores"]
+        a, b = v["participantA"], v["participantB"]
+    except (KeyError, TypeError):
+        return False
+    side = ("a" if a > b else "b") if a != b else \
+        max("ab", key=lambda x: sum(1 for w in job.get("words") or [] if str(w.get("s", "")).lower() == x))
+    name = str(job.get(f"{side}_name") or "").strip()
+    return " " in name and not ROLE_NAME.search(name)
+
+
 def drop_cache(key):
     for d in beatedit_dirs()[2].glob(f"clip_{key}_*"):
         shutil.rmtree(d, ignore_errors=True)
@@ -1422,7 +1446,13 @@ def main():
         if edit and BEATEDIT_GATE:   # a391: file an edit job only once beatedit has cut the window and found its open
             outcome, why = beatedit_spec(key, job, d / "src.mp4")
             note_gate(key, outcome, why)
-            if outcome != "pass":
+            if lends(outcome, why, job):
+                # only too few on-camera moments of a named debater: filed all the same, beatedit_feed.py renders it with
+                # beats lent by that person's other edit jobs (BEATEDIT_BEATS_WITH); the open and every beat face the
+                # same bars. The gate dropped zsDsMXcFX90_2631 (13 of 15) and ttVTPu0bS4M_1927 (6) on 11/6.
+                job["beat_short"] = int(SHORT_BEATS.search(why).group(1))
+                print(f"beatedit spec {key}: {why}; filed for a beat lending pair", file=sys.stderr)
+            elif outcome != "pass":
                 print(f"skip edit {key}: beatedit spec {'refused' if outcome == 'refused' else 'did not run'}: {why}",
                       file=sys.stderr)
                 shutil.rmtree(d, ignore_errors=True)
