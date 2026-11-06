@@ -33,7 +33,7 @@ CLAUDE = shutil.which("claude") or os.path.expanduser("~/.local/bin/claude")  # 
 ACCOUNTS = os.path.expanduser("~/Documents/ARENA/chat/accounts.py")
 CODEX_OUT = pathlib.Path(os.path.expanduser("~/.render-farm/codex_out.json"))
 AIR = os.environ.get("BRAIN_AIR", "air")  # ssh host of the render farm: the second route for section downloads
-PICKER = os.environ.get("BRAIN_PICKER", "auto")  # auto = NVIDIA, then Codex, then Claude; or nvidia / codex / claude
+PICKER = os.environ.get("BRAIN_PICKER", "auto")  # auto = Codex, then Claude (NVIDIA first with BRAIN_NV_FIRST=1); or nvidia / codex / claude
 # NVIDIA's free API (11/5 Reagan: "sign up for 12 accounts ... one of the best Chinese models ... like GLM ... rotate the
 # API keys"): first picker and second reader, same prompts and schema, Claude-paced mining unpaced while it answers.
 # Keys live only in his keychain (nvidia-api-key / reagan, nvidia-api-key-2..12), never in this repo. A model that
@@ -51,6 +51,11 @@ NV_EXTRA = {"minimaxai/minimax-m3.1-flash": {"reasoning_effort": "low"},
             "nvidia/nemotron-3.5-lightning-30b-a3b": {"chat_template_kwargs": {"enable_thinking": False}}}
 NV_BENCH = 1800
 NV_STATE = pathlib.Path(os.path.expanduser("~/.render-farm/nvidia_bench.json"))   # {model: failed at, "up": answered at}
+# 11/6 6:40 PM test (j1191), --dry-read on zw4Zk25WnV0, MPXLCKZVz14, ya_hAH3D7ZI, KUh4chttVqc, __RkxTtdnSI: Opus kept
+# 2 of 5 (KUh4chttVqc, __RkxTtdnSI); the NVIDIA chain kept 0 (4 hit the 25 min cap, MPXL misquoted both lines). Below
+# the bar, so auto does not lead with NVIDIA until a model passes this test: BRAIN_NV_FIRST=1 (or BRAIN_PICKER=nvidia)
+# turns it on, and only then does an answer mark "up", which unpaces the feeder.
+NV_FIRST = os.environ.get("BRAIN_NV_FIRST") == "1" or PICKER == "nvidia"
 
 SCHEMA = {
     "type": "object", "additionalProperties": False, "required": ["debate", "exchanges"],
@@ -723,7 +728,8 @@ def ask_nvidia(prompt, schema, timeout):
                 misses.append(f"{model} {type(e).__name__}"); break
             got = json_of("".join(text))
             if fits(got, schema):
-                nv_mark(up=time.time())
+                if NV_FIRST:   # the feeder unpaces on "up": only a production NVIDIA lane sets it
+                    nv_mark(up=time.time())
                 return got, model
             try:   # the last answer that missed the schema, for whoever tunes the chain
                 (NV_STATE.parent / "nvidia_off_schema.txt").write_text(f"{model}\n" + "".join(text)[-20000:])
@@ -736,7 +742,7 @@ def ask_nvidia(prompt, schema, timeout):
 
 def ask(prompt, schema, kind="pick", timeout=1800):
     """One structured answer from whichever picker is up -> (answer, "nvidia:<model>" | "codex" | "claude:<model>")."""
-    if PICKER == "nvidia" or PICKER == "auto":
+    if NV_FIRST:
         try:
             got, model = ask_nvidia(prompt, schema, timeout)
             return got, f"nvidia:{model}"
