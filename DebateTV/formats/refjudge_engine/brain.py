@@ -718,30 +718,33 @@ def fetch(url, work):
 # Windows (11/6, j1075): one picker call over a whole 18,000 word transcript returned 1.2 exchanges a video (93
 # videos 11/6, 108 exchanges, 4 jobs): the model reads the start and skims the rest. The same prompt, the same tests
 # and the same second reader now run on each WINDOW-word stretch of the captions (OVERLAP words shared, so a moment on
-# a seam is whole in one of them), at most MAX_WINDOWS spread over the video, PICK_THREADS at a time. The video is a
+# a seam is whole in one of them), at most MAX_WINDOWS (longer windows on a long video), PICK_THREADS at a time. The video is a
 # debate when most windows say so; exchanges come only from windows that do, best of each window first, and an
 # exchange overlapping a better one is dropped.
 WINDOW, OVERLAP, MAX_WINDOWS, PICK_THREADS = 3000, 250, int(os.environ.get("BRAIN_WINDOWS", 8)), 4
 
 
 def windows(words):
-    """[(t0, t1, words)]: the caption words cut into WINDOW-word stretches, at most MAX_WINDOWS spread evenly."""
+    """[words, ...]: the caption words cut into stretches of at least WINDOW words (OVERLAP shared with the next), at
+    most MAX_WINDOWS of them. A long video gets longer windows, never skipped stretches; a tail under half a window
+    joins the window before it instead of costing a call of its own."""
     if len(words) <= WINDOW + OVERLAP:
         return [words]
-    starts = list(range(0, len(words) - OVERLAP, WINDOW))
-    if len(starts) > MAX_WINDOWS:
-        step = len(starts) / MAX_WINDOWS
-        starts = [starts[int(i * step)] for i in range(MAX_WINDOWS)]
-    return [words[i:i + WINDOW + OVERLAP] for i in starts]
+    size = max(WINDOW, -(-(len(words) - OVERLAP) // MAX_WINDOWS))
+    starts = list(range(0, len(words) - OVERLAP, size))
+    if len(starts) > 1 and len(words) - starts[-1] < size // 2:
+        starts.pop()
+    return [words[a:(starts[k + 1] + OVERLAP if k + 1 < len(starts) else len(words))] for k, a in enumerate(starts)]
 
 
 def pick_windows(title, channel, words, n, note=""):
-    """The picker on each window -> ({"debate": .., "exchanges": [..]}, by). PickerDown in any window is raised."""
+    """The picker on each window -> ({"debate": .., "exchanges": [at most n]}, by). PickerDown in any window is
+    raised at once (windows not started are cancelled), so the feeder backs off without spending more usage."""
     import concurrent.futures as cf
     parts = windows(words)
     if len(parts) == 1:
         return ask(PROMPT.format(title=title, channel=channel, n=n, transcript=transcript_text(words)) + note, SCHEMA)
-    per = max(3, min(n, 6))
+    per = max(1, min(n, 6))
     def one(part):
         try:
             return ask(PROMPT.format(title=title, channel=channel, n=per, transcript=transcript_text(part)) + note, SCHEMA)
@@ -750,8 +753,14 @@ def pick_windows(title, channel, words, n, note=""):
         except Exception as e:   # one window's bad answer loses that window only
             print(f"window at {part[0][0]:.0f} s failed: {str(e)[-200:]}", file=sys.stderr)
             return None
-    with cf.ThreadPoolExecutor(PICK_THREADS) as pool:
-        got = list(pool.map(one, parts))
+    pool = cf.ThreadPoolExecutor(PICK_THREADS)
+    futs = [pool.submit(one, part) for part in parts]
+    try:
+        got = [f.result() for f in futs]
+    except PickerDown:
+        pool.shutdown(wait=False, cancel_futures=True)
+        raise
+    pool.shutdown()
     got = [g for g in got if g]
     if not got:
         raise RuntimeError("every picker window failed")
@@ -766,7 +775,8 @@ def pick_windows(title, channel, words, n, note=""):
                 ex = g["exchanges"][r]
                 if not any(ex["start"] < o["end"] and o["start"] < ex["end"] for o in exs):
                     exs.append(ex)
-    print(f"picker windows: {len(parts)} x {WINDOW} words, {len(exs)} exchanges", file=sys.stderr)
+    exs = exs[:n]   # --max still caps what one video returns
+    print(f"picker windows: {len(parts)} x ~{len(parts[0])} words, {len(exs)} exchanges", file=sys.stderr)
     return {"debate": verdict, "exchanges": exs}, got[0][1]
 
 
