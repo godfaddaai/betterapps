@@ -17,7 +17,7 @@ beside each one the reason a viewer stays. check() then throws out anything the 
   python3 brain.py <url> --dry     # the picks and their reasons, nothing judged, downloaded or filed
 """
 import diarize
-import argparse, datetime, fcntl, html, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.request
+import argparse, datetime, fcntl, html, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.error, urllib.request
 
 HERE = pathlib.Path(__file__).parent
 JOBS = HERE / "jobs"
@@ -33,7 +33,24 @@ CLAUDE = shutil.which("claude") or os.path.expanduser("~/.local/bin/claude")  # 
 ACCOUNTS = os.path.expanduser("~/Documents/ARENA/chat/accounts.py")
 CODEX_OUT = pathlib.Path(os.path.expanduser("~/.render-farm/codex_out.json"))
 AIR = os.environ.get("BRAIN_AIR", "air")  # ssh host of the render farm: the second route for section downloads
-PICKER = os.environ.get("BRAIN_PICKER", "auto")  # auto = Codex first, Claude when it is out; or codex / claude
+PICKER = os.environ.get("BRAIN_PICKER", "auto")  # auto = NVIDIA, then Codex, then Claude; or nvidia / codex / claude
+# NVIDIA's free API (11/5 Reagan: "sign up for 12 accounts ... one of the best Chinese models ... like GLM ... rotate the
+# API keys"): first picker and second reader, same prompts and schema, Claude-paced mining unpaced while it answers.
+# Keys live only in his keychain (nvidia-api-key / reagan, nvidia-api-key-2..12), never in this repo. A model that
+# misses (timeout, 5xx, bad JSON) sits out NV_BENCH seconds in ~/.render-farm/nvidia_bench.json so the chain never
+# stalls a video; 429/401/403 moves to the next key.
+NV_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
+NV_MODELS = [m for m in os.environ.get("BRAIN_NV_MODELS", "z-ai/glm-5.3-flash,minimaxai/minimax-m3.1-flash,"
+                                       "nvidia/nemotron-3.5-lightning-30b-a3b,deepseek-ai/deepseek-v4.1-flash").split(",") if m]
+# 11/6 5:30 PM probe on his 5 keys: GLM and DeepSeek no first byte in 45 s, Kimi 404, MiniMax answers in 3 to 7 s.
+# GLM and DeepSeek get a short try, then sit out NV_BENCH; GLM is used again by itself once NVIDIA serves it.
+NV_TRY = {"z-ai/glm-5.3-flash": 40, "deepseek-ai/deepseek-v4.1-flash": 40}
+# 11/6 6:15 PM: MiniMax streams ~25 tokens/s and thinks for minutes at full effort (8 min, no answer on a 3,560 word
+# show); "low" keeps a short think. Nemotron Lightning spends its whole budget thinking unless thinking is off.
+NV_EXTRA = {"minimaxai/minimax-m3.1-flash": {"reasoning_effort": "low"},
+            "nvidia/nemotron-3.5-lightning-30b-a3b": {"chat_template_kwargs": {"enable_thinking": False}}}
+NV_BENCH = 1800
+NV_STATE = pathlib.Path(os.path.expanduser("~/.render-farm/nvidia_bench.json"))   # {model: failed at, "up": answered at}
 
 SCHEMA = {
     "type": "object", "additionalProperties": False, "required": ["debate", "exchanges"],
@@ -604,8 +621,129 @@ def ask_claude(prompt, schema, kind, timeout):
     raise RuntimeError(f"claude picker: {msg}")
 
 
+def nv_keys():
+    out = []
+    for svc, acct in [("nvidia-api-key", "reagan")] + [(f"nvidia-api-key-{n}", None) for n in range(2, 13)]:
+        try:
+            r = subprocess.run(["security", "find-generic-password", "-s", svc] + (["-a", acct] if acct else []) + ["-w"],
+                               capture_output=True, text=True, timeout=15)
+        except Exception:
+            continue
+        k = (r.stdout or "").strip()
+        if r.returncode == 0 and k and k not in out:
+            out.append(k)
+    return out
+
+
+_NV = {"keys": None, "turn": 0}
+
+
+def nv_state():
+    try:
+        return json.loads(NV_STATE.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def nv_mark(**kv):
+    st = nv_state(); st.update(kv)
+    try:
+        NV_STATE.parent.mkdir(parents=True, exist_ok=True)
+        NV_STATE.write_text(json.dumps(st))
+    except OSError:
+        pass
+
+
+def fits(v, schema):
+    """The answer has the schema's shape (required keys, types, enums): what Codex and Claude enforce themselves."""
+    t = schema.get("type")
+    if t == "object":
+        return isinstance(v, dict) and all(k in v and fits(v[k], schema.get("properties", {}).get(k, {}))
+                                           for k in schema.get("required", []))
+    if t == "array":
+        return isinstance(v, list) and all(fits(x, schema.get("items", {})) for x in v)
+    if t == "number":
+        return isinstance(v, (int, float)) and not isinstance(v, bool)
+    if t == "integer":
+        return isinstance(v, int) and not isinstance(v, bool)
+    if t == "boolean":
+        return isinstance(v, bool)
+    if t == "string":
+        return isinstance(v, str) and ("enum" not in schema or v in schema["enum"])
+    return True
+
+
+def json_of(text):
+    text = re.sub(r"(?s)<think>.*?</think>", "", text or "").strip()
+    text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text)
+    try:
+        return json.loads(text)
+    except ValueError:
+        i, j = text.find("{"), text.rfind("}")
+        return json.loads(text[i:j + 1]) if i >= 0 < j else None
+
+
+def ask_nvidia(prompt, schema, timeout):
+    """The same prompt with the schema spelled out -> the answer, or PickerDown when no NVIDIA model answers."""
+    if _NV["keys"] is None:
+        _NV["keys"] = nv_keys()
+    pool = _NV["keys"]
+    if not pool:
+        raise PickerDown("no NVIDIA key in the keychain")
+    full = prompt + ("\n\nAnswer with ONE JSON object and nothing else (no prose, no code fence). It must match this "
+                     "JSON Schema exactly:\n" + json.dumps(schema))
+    misses = []
+    for model in NV_MODELS:
+        if time.time() - nv_state().get(model, 0) < NV_BENCH:
+            continue
+        wait = min(NV_TRY.get(model, 120), timeout)
+        for attempt in range(len(pool) + 1):
+            _NV["turn"] += 1
+            key = pool[_NV["turn"] % len(pool)]
+            body = json.dumps({"model": model, "messages": [{"role": "user", "content": full}], "temperature": 0.2,
+                               "max_tokens": 16384, "stream": True, **NV_EXTRA.get(model, {})}).encode()
+            req = urllib.request.Request(NV_URL, data=body, headers={"Authorization": "Bearer " + key,
+                                                                     "Content-Type": "application/json"})
+            try:   # streamed: a long read keeps sending tokens, so `wait` bounds the first byte and each gap only
+                text, t0 = [], time.time()
+                with urllib.request.urlopen(req, timeout=wait) as r:
+                    for raw in r:
+                        line = raw.decode("utf-8", "replace").strip()
+                        if not line.startswith("data:") or line == "data: [DONE]":
+                            continue
+                        delta = ((json.loads(line[5:]).get("choices") or [{}])[0].get("delta") or {})
+                        text.append(delta.get("content") or "")
+                        if time.time() - t0 > timeout:
+                            raise TimeoutError("over the call's timeout")
+            except urllib.error.HTTPError as e:
+                if e.code in (401, 403, 429) and attempt < len(pool):
+                    continue   # this account is rate limited or dead: the next key takes it
+                misses.append(f"{model} HTTP {e.code}"); break
+            except Exception as e:   # timeout, reset: NVIDIA's queue for this model is full
+                misses.append(f"{model} {type(e).__name__}"); break
+            got = json_of("".join(text))
+            if fits(got, schema):
+                nv_mark(up=time.time())
+                return got, model
+            try:   # the last answer that missed the schema, for whoever tunes the chain
+                (NV_STATE.parent / "nvidia_off_schema.txt").write_text(f"{model}\n" + "".join(text)[-20000:])
+            except OSError:
+                pass
+            misses.append(f"{model} answer off schema"); break
+        nv_mark(**{model: time.time()})
+    raise PickerDown("NVIDIA: " + ("; ".join(misses) or "every model benched"))
+
+
 def ask(prompt, schema, kind="pick", timeout=1800):
-    """One structured answer from whichever picker is up -> (answer, "codex" | "claude:<model>")."""
+    """One structured answer from whichever picker is up -> (answer, "nvidia:<model>" | "codex" | "claude:<model>")."""
+    if PICKER == "nvidia" or PICKER == "auto":
+        try:
+            got, model = ask_nvidia(prompt, schema, timeout)
+            return got, f"nvidia:{model}"
+        except PickerDown as e:
+            print(f"nvidia picker: {str(e)[-300:]}", file=sys.stderr)
+            if PICKER == "nvidia":
+                raise
     if PICKER == "codex" or (PICKER == "auto" and not codex_out()):
         try:
             return ask_codex(prompt, schema, timeout), f"codex:{MODEL}"
