@@ -301,7 +301,8 @@ NAME_GONE = re.compile(r"\bnames?\b|\bnamed\b|\bnaming\b", re.I)
 
 def absent_names(ex, words):
     """The names in a_name / b_name the captions never say (25 s before the pick to 12 s after): {"a": .., "b": ..}.
-    A plain description ("a Protestant", "Student") is never absent: only its capitalised words are checked."""
+    Only a full name of two or more capitalised words ("Jay Dyer", "Earthling Ed") is checked: a description ("a
+    Protestant", "Student", "Protestant") is never a name, so it is never absent."""
     heard = {norm(w) for t, w in words if ex["start"] - 25 <= t <= ex["end"] + 12}
     gone = {}
     for side in ("a", "b"):
@@ -309,7 +310,7 @@ def absent_names(ex, words):
         if not name[:1].isupper():
             continue   # "a Protestant", "an atheist": a description, not a name
         caps = [norm(w) for w in name.split() if w[:1].isupper() and len(norm(w)) > 2]
-        if caps and not any(c in heard for c in caps):
+        if len(caps) >= 2 and len(caps) == len([w for w in name.split() if norm(w)]) and not any(c in heard for c in caps):
             gone[side] = name
     return gone
 
@@ -356,9 +357,11 @@ def relabel(picks, words):
                 break   # no "a ..." label for a person, or it keeps the unsaid name: no rename
             new[f"{side}_name"] = label
             for w in [name] + [x for x in name.split() if x[:1].isupper() and len(x) > 2]:
-                for f in ("hook_topic", "take_hook"):
-                    if new.get(f):
-                        new[f] = re.sub(rf"\b{re.escape(w)}\b", label, new[f])
+                for f in ("hook_topic", "take_hook", "motion", "a_side", "b_side", "retention"):
+                    if new.get(f):   # every field that reaches the screen, the judge or job.json
+                        new[f] = re.sub(rf"(^|[.?!]\s+)?\b{re.escape(w)}\b",
+                                        lambda m: (m.group(1) or "") + (label[:1].upper() + label[1:] if m.group(1) is not None
+                                                                        else label), new[f])
         else:
             new["matchup"] = f"{new['a_name']} vs {new['b_name']}"   # the title's names are the two sides now
             new["renamed_from"] = dict(gone)
@@ -374,22 +377,20 @@ WIDEN = 40
 
 
 def edit_repick(title, channel, words, weak, avoid, n):
-    """[(ex, by)] 20 to 60 s edit picks from the caption windows around the weak picks; none overlap avoid."""
-    spans = sorted((max(0.0, ex["start"] - WIDEN), ex["end"] + WIDEN) for ex in weak)
-    merged = []
-    for a, b in spans:
-        if merged and a <= merged[-1][1]:
-            merged[-1][1] = max(merged[-1][1], b)
-        else:
-            merged.append([a, b])
-    win = [(t, w) for t, w in words if any(a <= t <= b for a, b in merged)]
-    text = "\n...\n".join(transcript_text([(t, w) for t, w in win if a <= t <= b]) for a, b in merged)
+    """[(ex, from_key)]: 20 to 60 s edit picks, each widened around ONE weak pick (it must contain or overlap the
+    moment the second reader called WEAK, inside WIDEN s either side of it); none overlap avoid. weak: [(key, ex)]."""
+    wins = [(k, max(0.0, ex["start"] - WIDEN), ex["end"] + WIDEN, ex) for k, ex in weak]
+    text = "\n...\n".join(transcript_text([(t, w) for t, w in words if a <= t <= b]) for _, a, b, _ in wins)
     got, by = ask(PROMPT.format(title=title, channel=channel, n=n, transcript=text) + EDIT_NOTE, SCHEMA)
     if not got["debate"]["two_sided"]:
         return [], by
-    picks = [ex for ex in got["exchanges"]
-             if any(a - 1 <= ex["start"] and ex["end"] <= b + 1 for a, b in merged)
-             and not any(ex["start"] < o["end"] and o["start"] < ex["end"] for o in avoid)]
+    picks = []
+    for ex in got["exchanges"]:
+        src = next((k for k, a, b, w in wins if a - 1 <= ex["start"] and ex["end"] <= b + 1
+                    and ex["start"] < w["end"] and w["start"] < ex["end"]), None)   # widened around this weak pick
+        if src and not any(ex["start"] < o["end"] and o["start"] < ex["end"] for o in avoid) \
+                and not any(f == src for _, f in picks):   # one edit job per weak pick
+            picks.append((ex, src))
     return picks, by
 
 
@@ -931,14 +932,15 @@ def main():
     weak = [(k, r, e) for k, r, e in weak if k not in saved and set(verdicts[k][2]) <= {3, 4, 5}]
     if weak:
         try:
-            picks, eby = edit_repick(title, channel, words, [e for _, _, e in weak], [e for _, _, e, _, _ in kept], len(weak))
+            picks, eby = edit_repick(title, channel, words, [(k, e) for k, _, e in weak], [e for _, _, e, _, _ in kept], len(weak))
         except Exception as e:   # the clip picks stand as they are; no edit job this run
             picks, eby = [], ""
             print(f"edit repick failed: {str(e)[-200:]}", file=sys.stderr)
         print(f"edit repick {eby}: {len(picks)} 20 to 60 s picks around {len(weak)} weak "
               f"({', '.join(k for k, _, _ in weak)})", file=sys.stderr)
         stood_e = []
-        for ex in picks:
+        for ex, src in picks:
+            ex["edit_from"] = src
             key = f"{vid}_{int(ex['start'])}"
             why_not = ("already in the ledger" if key in ledger else
                        "same key as a kept pick" if any(k == key for k, *_ in kept) else check(ex, words, edit=True))
@@ -955,7 +957,7 @@ def main():
                 if verdict3 == "PULL":   # edit mode files KEEP and WEAK, never PULL (as brain.py --edit does)
                     print(f"skip edit {key}: second reader, pull: {why3}", file=sys.stderr); continue
                 print(f"edit {key}: second reader, {verdict3.lower()}: {why3}", file=sys.stderr)
-                ex["edit"], ex["edit_from"] = True, [k for k, _, _ in weak]
+                ex["edit"] = True   # edit_from: the one weak pick it was widened around
                 kept.append((key, 0, ex, f"{read3_by} (edit from weak)", why3))
     if a.dry_read:
         print(json.dumps({"video": {"id": vid, "title": title}, "first_read": {k: list(v) for k, v in read.items()},
