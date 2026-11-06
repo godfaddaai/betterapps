@@ -145,8 +145,9 @@ Return every id exactly once. Only return the JSON.
 REVIEW_SCHEMA = {
     "type": "object", "additionalProperties": False, "required": ["picks"],
     "properties": {"picks": {"type": "array", "items": {
-        "type": "object", "additionalProperties": False, "required": ["key", "verdict", "why"],
+        "type": "object", "additionalProperties": False, "required": ["key", "verdict", "fails", "why"],
         "properties": {"key": {"type": "string"}, "verdict": {"type": "string", "enum": ["KEEP", "WEAK", "PULL"]},
+                       "fails": {"type": "array", "items": {"type": "integer", "enum": [1, 2, 3, 4, 5, 6]}},
                        "why": {"type": "string"}},
     }}},
 }
@@ -172,8 +173,8 @@ KEEP only when all of this is true:
    no name the captions do not support, no label on a private person (race, politics, body).
 6. Nothing about a person rather than a take, no pile-on, no one who sounds like a minor, no explicit talk or talk
    about anyone's sexual past, no swearing.
-WEAK = a real debate that fails 3, 4 or 5. PULL = fails 1, 2 or 6. Give every pick one verdict and one or two plain
-sentences with no dashes that quote the caption words deciding it. Most picks should not survive you; KEEP is earned.
+WEAK = a real debate that fails 3, 4 or 5. PULL = fails 1, 2 or 6. Give every pick one verdict, in fails the number
+of every rule above it fails (empty for KEEP; list them all, not only the first), and one or two plain sentences with no dashes that quote the caption words deciding it. Most picks should not survive you; KEEP is earned.
 Only return the JSON.
 
 {picks}"""
@@ -201,7 +202,94 @@ Raw captions, 12 s AFTER: {g(ex['end'] + 0.3, ex['end'] + 12)}
     got, by = ask(REVIEW.format(title=vid_title, channel=channel, picks="\n".join(blocks)) + (WIRE_REVIEW if WIRE else "")
                   + (EDIT_REVIEW if EDIT else ""),
                   REVIEW_SCHEMA)
-    return {p["key"]: (p["verdict"], p["why"].strip()) for p in got["picks"]}, by
+    return {p["key"]: (p["verdict"], p["why"].strip(), sorted(set(p.get("fails") or []))) for p in got["picks"]}, by
+
+
+# The end recut (11/6, asks a201 and a346 "content 24/7 ... 30 kept clips a day, keep the picker's bar"): in 146 brain
+# runs the picker offered 149 exchanges and 3 were kept; 91 of the kills are the second reader saying WEAK, mostly
+# because the payoff runs straight on into more of the same reply. When the reader faults the end (WEAK, rule 4 among
+# its fails, and its words say the reply runs on), caption_recut() moves the end to where that sentence finishes in
+# the caption words and drops opening lines to stay under MAX_PICK. The recut then faces check() and the second
+# reader again, once, from scratch: it is filed only on a fresh KEEP. No rule and no prompt is loosened.
+RUNS_ON = re.compile(r"runs? (straight |right )?(on )?into|keeps? going|kept going|still going|carries on|carried on|"
+                     r"goes on|went on|continues|continued|cut off|cuts off|only the start|mid ?(sentence|thought|reply)|"
+                     r"unfinished|not finished|isn.t finished|before .{0,20}finish", re.I)
+
+
+def end_only(verdict, why, fails):
+    """The second reader faults the pick (rule 4 among its fails) for ending while the reply is still going."""
+    return verdict == "WEAK" and 4 in fails and bool(RUNS_ON.search(why))
+
+
+RECUT_LOG = pathlib.Path(os.path.expanduser("~/.render-farm/recut_ledger.jsonl"))
+
+
+def note_recut(key, outcome, dry, why="", src=None):
+    """One line per end recut step (11/6, j704): the gate's real yield per day, read by `brain.py --recut-stats`.
+    key is the recut's own key once it has one; src is always the pick it was cut from. Outcomes: failed, no_cut,
+    check, weak, pull, read_keep (the second reader kept it) and filed (its job.json is written)."""
+    try:
+        RECUT_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with RECUT_LOG.open("a") as f:
+            f.write(json.dumps({"at": time.strftime("%F %T"), "key": key, "src": src or key, "outcome": outcome, "dry": dry,
+                                "why": why[:300]}) + "\n")
+    except OSError:
+        pass   # the ledger is a count, never a reason to drop a pick
+
+
+def recut_stats():
+    """Recuts tried and kept per day from the ledger (live runs; dry reads counted apart)."""
+    days = {}
+    for line in RECUT_LOG.read_text().splitlines() if RECUT_LOG.exists() else ():
+        try:
+            r = json.loads(line)
+            day, outcome = str(r["at"])[:10], str(r["outcome"])
+        except (ValueError, KeyError, TypeError):
+            continue   # a bad line never stops the count
+        d = days.setdefault((day, "dry" if r.get("dry") else "live"), {})
+        d[outcome] = d.get(outcome, 0) + 1
+    for (day, kind), c in sorted(days.items()):
+        tried = sum(v for k, v in c.items() if k != "filed")
+        print(f"{day} {kind}: {tried} tried, {c.get('read_keep', 0)} kept by the second reader, {c.get('filed', 0)} filed  " +
+              ", ".join(f"{k} {v}" for k, v in sorted(c.items())))
+
+
+def caption_recut(ex, words):
+    """The end recut from the captions alone (11/6, ask a346): the second reader said the payoff runs straight on into
+    more of the same reply, so the end moves to where that speaker's sentence finishes in the caption words (a . ? !
+    when the captions are punctuated, else a pause of a second or more), at most 9 s on and never past a ">>" turn
+    mark. Two ends are offered when they differ: the first sentence end, and the last one before the turn mark or the
+    9 s (the reply's finish). The words heard up to the end join the last line, so the kill phrase stays in it. If a
+    cut then runs past MAX_PICK, opening lines drop until it fits (never below two lines). -> ([cuts], why none).
+    check() and the second reader rule on each from scratch, unchanged; at most one is filed."""
+    tail = [norm(w) for w in ex["lines"][-1]["text"].split() if norm(w)]
+    if not tail:
+        return [], "empty last line"
+    near = [t for t, w in words if norm(w) == tail[-1] and t > ex["lines"][-1]["start"] and abs(t - ex["end"]) <= 4]
+    t_last = min(near, key=lambda t: abs(t + 0.5 - ex["end"])) if near else ex["end"] - 0.5
+    after = [(t, w) for t, w in words if t > t_last + 0.05]
+    punct = any(w[-1:] in ".?!" for t, w in words if t_last - 30 <= t <= t_last + 30)
+    ends = []   # (index of the sentence's last word in after, end time)
+    for k, (t, w) in enumerate(after):
+        if t > t_last + 9 or w.startswith(">>"):
+            break
+        nxt = after[k + 1][0] if k + 1 < len(after) else None   # None: the video's last word
+        if (punct and w[-1:] in ".?!") or (not punct and (nxt is None or nxt - t >= 1.0)):
+            # the reader sees the captions to end + 0.3 and the clip plays to the end: the next word stays out of both
+            ends.append((k, t + 0.5 if nxt is None else min(t + 0.5, nxt - 0.35)))
+    if not ends:
+        return [], "the sentence does not finish within 9 s"
+    cuts, why = [], ""
+    for k, end in dict.fromkeys([ends[0], ends[-1]]):
+        lines = [dict(l) for l in ex["lines"]]
+        lines[-1]["text"] = lines[-1]["text"].rstrip() + " " + " ".join(w for _, w in after[:k + 1])
+        while end - lines[0]["start"] > MAX_PICK and len(lines) > 2:
+            lines.pop(0)
+            lines[0]["start"] = snap(words, lines[0]["start"], lines[0]["text"])
+        if end - lines[0]["start"] > MAX_PICK:
+            why = f"{end - lines[0]['start']:.1f} s even without the opening line"; continue
+        cuts.append(dict(ex, lines=lines, start=lines[0]["start"], end=round(end, 2)))
+    return cuts, why
 
 
 class PickerDown(RuntimeError):
@@ -623,11 +711,16 @@ def judge(ex):
 
 def main():
     ap = argparse.ArgumentParser()
+    if "--recut-stats" in sys.argv[1:]:
+        return recut_stats()
     ap.add_argument("url")
+    ap.add_argument("--recut-stats", action="store_true", help="print end recuts tried, read-kept and filed per day "
+                    "from ~/.render-farm/recut_ledger.jsonl, then stop (no url needed)")
     ap.add_argument("--max", type=int, default=12)
     ap.add_argument("--wire", action="store_true", help="breaking news picks for 68_wirepost (see WIRE_NOTE)")
     ap.add_argument("--edit", action="store_true", help="20 to 60 s picks for 64_beatedit's fan edit (see EDIT_NOTE)")
     ap.add_argument("--dry", action="store_true", help="print the picks and their reasons; judge, download and file nothing")
+    ap.add_argument("--dry-read", action="store_true", help="--dry plus check(), the second reader and the end recut")
     a = ap.parse_args()
     ledger = json.loads(LEDGER.read_text()) if LEDGER.exists() else {}
 
@@ -667,21 +760,65 @@ def main():
         if why_not:
             print(f"skip {key}: {why_not}", file=sys.stderr); continue
         stood.append((key, rank, ex))
-    read = {}
+    read, read_by = {}, ""
     if stood:
         try:
             read, read_by = second_read(title, channel, [(k, ex) for k, _, ex in stood], words)
         except PickerDown as e:
             sys.exit(f"picker down, {e}")
+    kept, recut = [], []
     for key, rank, ex in stood:
-        verdict2, why2 = read.get(key, ("PULL", "the second reader gave no verdict"))
-        if verdict2 != "KEEP" and not (EDIT and verdict2 == "WEAK"):   # WEAK fails only the clip's hook and window
+        verdict2, why2, fails = read.get(key, ("PULL", "the second reader gave no verdict", []))
+        if verdict2 == "KEEP" or (EDIT and verdict2 == "WEAK"):   # WEAK fails only the clip's hook and window
             # rules (3 to 5); beatedit picks its own open sentence and gates it, so an edit pick stops only on PULL
-            print(f"skip {key}: second reader, {verdict2.lower()}: {why2}", file=sys.stderr); continue
+            kept.append((key, rank, ex, read_by, why2)); continue
+        print(f"skip {key}: second reader, {verdict2.lower()}: {why2}", file=sys.stderr)
+        if EDIT or not end_only(verdict2, why2, fails):
+            continue
+        cuts, no_cut = caption_recut(ex, words)
+        if not cuts:
+            print(f"recut {key}: no caption cut, {no_cut}", file=sys.stderr)
+            note_recut(key, "no_cut", a.dry_read, no_cut); continue
+        others = [e for k, _, e in stood if k != key] + [e for _, _, e in recut]
+        for n, cut in enumerate(cuts):
+            key2 = f"{vid}_{int(cut['start'])}" + ("" if n == 0 else f"_{int(cut['end'])}")
+            why_not = ("already in the ledger" if f"{vid}_{int(cut['start'])}" in ledger else
+                       "overlaps another pick" if any(cut["start"] < o["end"] and o["start"] < cut["end"] for o in others)
+                       else check(cut, words))
+            if why_not:
+                print(f"recut {key} -> {key2}: {why_not}", file=sys.stderr); note_recut(key, "check", a.dry_read, why_not); continue
+            print(f"recut {key} -> {key2}: {cut['start']:.1f} to {cut['end']:.1f} s, to the second reader again", file=sys.stderr)
+            cut["recut_from"] = key
+            recut.append((key2, rank, cut))
+    if recut:
+        try:
+            read2, read2_by = second_read(title, channel, [(k, ex) for k, _, ex in recut], words)
+        except Exception as e:   # no fresh read, no recut filed
+            read2, read2_by = {}, f"second read failed, {e}"
+        for key, rank, ex in recut:
+            verdict2, why2, _ = read2.get(key, ("PULL", "the second reader gave no verdict", []))
+            if verdict2 != "KEEP":     # once: a recut that is not a fresh KEEP is dropped, never recut again
+                print(f"skip {key}: recut, second reader, {verdict2.lower()}: {why2}", file=sys.stderr)
+                note_recut(key, verdict2.lower(), a.dry_read, why2, ex.get("recut_from")); continue
+            if any(k[2].get("recut_from") == ex.get("recut_from") for k in kept):
+                continue   # both ends of one pick kept: the first (the shorter) is filed
+            print(f"recut {key}: second reader, keep: {why2}", file=sys.stderr)
+            note_recut(key, "read_keep", a.dry_read, why2, ex.get("recut_from"))
+            ex["recut"] = True
+            kept.append((key, rank, ex, f"{read2_by} (recut end)", why2))
+    if a.dry_read:
+        print(json.dumps({"video": {"id": vid, "title": title}, "first_read": {k: list(v) for k, v in read.items()},
+                          "kept": [{"key": k, "recut": bool(ex.get("recut")), "start": ex["start"], "end": ex["end"],
+                                    "lines": ex["lines"], "second_read": w} for k, _, ex, _, w in kept]}, indent=1))
+        print(f"dry read: {len(kept)} kept ({sum(1 for k in kept if k[2].get('recut'))} by recut) of "
+              f"{len(exchanges)} exchanges", file=sys.stderr)
+        return
+    for key, rank, ex, read_by, why2 in kept:
         for l in ex["lines"]:
             l["start"] = snap(words, l["start"], l["text"])
         ex["start"] = ex["lines"][0]["start"]  # open on the question itself, never on leftover words
-        ex["end"] = snap_end(words, ex)
+        if not ex.get("recut"):   # a recut's end already sits on its sentence end, clear of the next word
+            ex["end"] = snap_end(words, ex)
         if ex["end"] - ex["start"] > (EDIT_MAX if EDIT else MAX_PICK):
             print(f"skip {key}: {ex['end'] - ex['start']:.0f} s once snapped to the captions", file=sys.stderr); continue
         # caption words for this exchange, each tagged with whoever's line it falls in
@@ -709,6 +846,8 @@ def main():
                           "second_reader": read_by, "second_read": why2},
                "words": cap, "judge_request": req, "judge_response": verdict}
         (d / "job.json").write_text(json.dumps(job, indent=1))
+        if ex.get("recut"):
+            note_recut(key, "filed", False, "", ex.get("recut_from"))
         # several brains run at once (render-farm feeder): merge with what the others wrote since we started
         ledger = {**(json.loads(LEDGER.read_text()) if LEDGER.exists() else {}), key: {"title": title, "motion": ex["motion"]}}
         tmp = LEDGER.with_suffix(f".{os.getpid()}.tmp")
