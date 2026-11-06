@@ -205,39 +205,21 @@ Raw captions, 12 s AFTER: {g(ex['end'] + 0.3, ex['end'] + 12)}
     return {p["key"]: (p["verdict"], p["why"].strip(), sorted(set(p.get("fails") or []))) for p in got["picks"]}, by
 
 
-# The end recut (11/6, ask a201 "content 24/7 ... 30 kept clips a day, keep the picker's bar"): of 222 second reader
-# kills in the brain logs 11/3 to 11/5, 87 say the pick ends while the reply is still going. When that is the ONLY
-# thing the reader faults (WEAK, fails rule 4 alone, and its words say the reply runs on), the picker recuts the end
-# to the finish of that reply, inside the 19 s, moving the start up if it must. The recut then faces check() and the
-# second reader again, once, from scratch: it is filed only on a fresh KEEP. No rule is loosened.
+# The end recut (11/6, asks a201 and a346 "content 24/7 ... 30 kept clips a day, keep the picker's bar"): in 146 brain
+# runs the picker offered 149 exchanges and 3 were kept; 91 of the kills are the second reader saying WEAK, mostly
+# because the payoff runs straight on into more of the same reply. When the reader faults the end (WEAK, rule 4 among
+# its fails, and its words say the reply runs on), caption_recut() moves the end to where that sentence finishes in
+# the caption words and drops opening lines to stay under MAX_PICK. The recut then faces check() and the second
+# reader again, once, from scratch: it is filed only on a fresh KEEP. No rule and no prompt is loosened.
 RUNS_ON = re.compile(r"runs? (straight |right )?(on )?into|keeps? going|kept going|still going|carries on|carried on|"
                      r"goes on|went on|continues|continued|cut off|cuts off|only the start|mid ?(sentence|thought|reply)|"
                      r"unfinished|not finished|isn.t finished|before .{0,20}finish", re.I)
 
 
 def end_only(verdict, why, fails):
-    """The second reader faults the pick only for ending while the reply is still going."""
-    return verdict == "WEAK" and fails == [4] and bool(RUNS_ON.search(why))
+    """The second reader faults the pick (rule 4 among its fails) for ending while the reply is still going."""
+    return verdict == "WEAK" and 4 in fails and bool(RUNS_ON.search(why))
 
-
-RECUT = """RECUT. A second reader ruled the pick below WEAK for one reason only: it ends while the reply is still going.
-Its words: "{why}"
-
-Recut it from the captions below. The new end is the moment that reply finishes: the last word of that speaker's
-turn, before the other side speaks or the next thought starts, and nothing after it. First word to last word is 10
-to 18 seconds, never more than 19: if the new end makes it longer, move the start later, onto the first word of a
-later sentence that itself opens on the hook. Every test and every field rule above holds in full: the last line is
-the payoff and holds the kill phrase, every line is copied from the captions with its own start time, A is whoever
-speaks first in the new cut, and the title fields are literally true of the new lines. If no cut of this moment
-passes every test, return two_sided true and an empty exchanges list. Return at most one exchange.
-
-THE PICK (first reader's version):
-{pick}
-
-CAPTIONS, 25 s before its start to 25 s after its end (each line starts with its time in seconds; no speaker labels):
-{captions}
-
-Only return the JSON."""
 
 RECUT_LOG = pathlib.Path(os.path.expanduser("~/.render-farm/recut_ledger.jsonl"))
 
@@ -272,18 +254,44 @@ def recut_stats():
               ", ".join(f"{k} {v}" for k, v in sorted(c.items())))
 
 
-def recut_end(title, channel, ex, why, words):
-    """The picker's recut of a pick the second reader faulted only for its end -> the new exchange, or None."""
-    rules = PROMPT[PROMPT.index("STEP 2"):PROMPT.index("Only return the JSON.")].format(n=1)
-    head = PROMPT[:PROMPT.index("STEP 1")].format(title=title, channel=channel, transcript="")
-    pick = {k: ex[k] for k in SCHEMA["properties"]["exchanges"]["items"]["required"]}
-    near = [(t, w) for t, w in words if ex["start"] - 25 <= t <= ex["end"] + 25]
-    got, by = ask(head + rules + (WIRE_NOTE if WIRE else "")
-                  + RECUT.format(why=why, pick=json.dumps(pick, indent=1), captions=transcript_text(near)), SCHEMA)
-    if not got.get("debate", {}).get("two_sided"):
-        return None, by
-    cut = (got.get("exchanges") or [None])[0]
-    return cut, by
+def caption_recut(ex, words):
+    """The end recut from the captions alone (11/6, ask a346): the second reader said the payoff runs straight on into
+    more of the same reply, so the end moves to where that sentence finishes in the caption words (a . ? ! when the
+    captions are punctuated, else the first pause of a second or more), at most 9 s on. The words heard up to there
+    join the last line, so the kill phrase stays in it. If the pick then runs past MAX_PICK, opening lines drop until
+    it fits (never below two lines). -> (cut, "") or (None, why there is no cut). check() and the second reader
+    then rule on it from scratch, unchanged."""
+    lines = [dict(l) for l in ex["lines"]]
+    last = lines[-1]
+    tail = [norm(w) for w in last["text"].split() if norm(w)]
+    if not tail:
+        return None, "empty last line"
+    near = [t for t, w in words if norm(w) == tail[-1] and t > last["start"] and abs(t - ex["end"]) <= 4]
+    t_last = min(near, key=lambda t: abs(t + 0.5 - ex["end"])) if near else ex["end"] - 0.5
+    after = [(t, w) for t, w in words if t > t_last + 0.05]
+    if not after:
+        return None, "no caption words after the payoff"
+    punct = any(w[-1:] in ".?!" for t, w in words if t_last - 30 <= t <= t_last + 30)
+    seq, end = [], None
+    for k, (t, w) in enumerate(after):
+        if t > t_last + 9:
+            break
+        seq.append(w)
+        nxt = after[k + 1][0] if k + 1 < len(after) else None   # None: the video's last word
+        if (punct and w[-1:] in ".?!") or (not punct and (nxt is None or nxt - t >= 1.0)):
+            end = t + 0.5 if nxt is None else min(t + 0.5, nxt - 0.05)
+            break
+    if end is None:
+        return None, "the sentence does not finish within 9 s"
+    last["text"] = last["text"].rstrip() + " " + " ".join(seq)
+    lines[-1] = last
+    while end - lines[0]["start"] > MAX_PICK and len(lines) > 2:
+        lines.pop(0)
+        lines[0]["start"] = snap(words, lines[0]["start"], lines[0]["text"])
+    if end - lines[0]["start"] > MAX_PICK:
+        return None, f"{end - lines[0]['start']:.1f} s even without the opening line"
+    cut = dict(ex, lines=lines, start=lines[0]["start"], end=round(end, 2))
+    return cut, ""
 
 
 class PickerDown(RuntimeError):
@@ -769,13 +777,10 @@ def main():
         print(f"skip {key}: second reader, {verdict2.lower()}: {why2}", file=sys.stderr)
         if EDIT or not end_only(verdict2, why2, fails):
             continue
-        try:
-            cut, cut_by = recut_end(title, channel, ex, why2, words)
-        except Exception as e:   # a failed recut drops only the recut, never the picks already kept
-            print(f"recut {key}: failed, {e}", file=sys.stderr); note_recut(key, "failed", a.dry_read, str(e)); continue
+        cut, no_cut = caption_recut(ex, words)
         if not cut:
-            print(f"recut {key}: the picker found no cut that passes every test", file=sys.stderr)
-            note_recut(key, "no_cut", a.dry_read, why2); continue
+            print(f"recut {key}: no caption cut, {no_cut}", file=sys.stderr)
+            note_recut(key, "no_cut", a.dry_read, no_cut); continue
         key2 = f"{vid}_{int(cut['start'])}"
         others = [e for k, _, e in stood if k != key] + [e for _, _, e in recut]
         why_not = ("already in the ledger" if key2 in ledger else
