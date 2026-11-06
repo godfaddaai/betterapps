@@ -651,10 +651,12 @@ def nv_state():
 
 
 def nv_mark(**kv):
-    st = nv_state(); st.update(kv)
-    try:
+    try:   # two brains at once: the lock keeps one from dropping the other's bench or "up" mark
         NV_STATE.parent.mkdir(parents=True, exist_ok=True)
-        NV_STATE.write_text(json.dumps(st))
+        with open(NV_STATE.with_suffix(".lock"), "w") as lk:
+            fcntl.flock(lk, fcntl.LOCK_EX)
+            st = nv_state(); st.update(kv)
+            tmp = NV_STATE.with_suffix(".tmp"); tmp.write_text(json.dumps(st)); tmp.replace(NV_STATE)
     except OSError:
         pass
 
@@ -685,7 +687,10 @@ def json_of(text):
         return json.loads(text)
     except ValueError:
         i, j = text.find("{"), text.rfind("}")
-        return json.loads(text[i:j + 1]) if i >= 0 < j else None
+        try:
+            return json.loads(text[i:j + 1]) if i >= 0 < j else None
+        except ValueError:   # braces but not JSON: off schema, so the model is benched and ask() falls back
+            return None
 
 
 def ask_nvidia(prompt, schema, timeout):
@@ -698,10 +703,15 @@ def ask_nvidia(prompt, schema, timeout):
     full = prompt + ("\n\nAnswer with ONE JSON object and nothing else (no prose, no code fence). It must match this "
                      "JSON Schema exactly:\n" + json.dumps(schema))
     misses = []
+    deadline = time.time() + timeout   # one budget for the whole chain, not `timeout` per model
     for model in NV_MODELS:
         if time.time() - nv_state().get(model, 0) < NV_BENCH:
             continue
-        wait = min(NV_TRY.get(model, 120), timeout)
+        left = deadline - time.time()
+        if left <= 0:
+            misses.append("chain over its time"); break
+        wait = min(NV_TRY.get(model, 120), left)
+        bench = True
         for attempt in range(len(pool) + 1):
             _NV["turn"] += 1
             key = pool[_NV["turn"] % len(pool)]
@@ -718,13 +728,15 @@ def ask_nvidia(prompt, schema, timeout):
                             continue
                         delta = ((json.loads(line[5:]).get("choices") or [{}])[0].get("delta") or {})
                         text.append(delta.get("content") or "")
-                        if time.time() - t0 > timeout:
+                        if time.time() > deadline:
                             raise TimeoutError("over the call's timeout")
             except urllib.error.HTTPError as e:
                 if e.code in (401, 403, 429) and attempt < len(pool):
                     continue   # this account is rate limited or dead: the next key takes it
                 misses.append(f"{model} HTTP {e.code}"); break
             except Exception as e:   # timeout, reset: NVIDIA's queue for this model is full
+                # a stream still answering when the budget ran out is a long show, not a dead server: no bench
+                bench = not (isinstance(e, TimeoutError) and str(e) == "over the call's timeout")
                 misses.append(f"{model} {type(e).__name__}"); break
             got = json_of("".join(text))
             if fits(got, schema):
@@ -736,7 +748,8 @@ def ask_nvidia(prompt, schema, timeout):
             except OSError:
                 pass
             misses.append(f"{model} answer off schema"); break
-        nv_mark(**{model: time.time()})
+        if bench:
+            nv_mark(**{model: time.time()})
     raise PickerDown("NVIDIA: " + ("; ".join(misses) or "every model benched"))
 
 
@@ -878,10 +891,29 @@ def check(ex, words, edit=None):
     if EDIT_:  # the edit's open line may be any of the debater's sentences
         last = [norm(w) for l in lines for w in l["text"].split() if norm(w)]
     if not kill or not any(last[i:i + len(kill)] == kill for i in range(len(last))):
-        return "the kill phrase is not in the last line: the payoff is not the end"
+        return KILL_MISS
     if not ex["retention"].strip() or not ex["hook_topic"].strip():
         return "no reason or no topic given"
     return ""
+
+
+KILL_MISS = "the kill phrase is not in the last line: the payoff is not the end"
+
+
+def end_on_kill(ex):
+    """The picker named a kill phrase that sits in an earlier line, then ran the clip on past it (11/6 logs: 5 of the
+    last 40 videos lost picks this way, e.g. OyVdi1AXE3o_819 and _5339). The cut ends on that line instead, the line
+    after it starts the tail that goes, and the cut faces check() and the second reader from scratch. -> the cut, or
+    None when the phrase is in no earlier line. No rule is loosened: the payoff still has to be the end."""
+    kill = [norm(w) for w in ex.get("kill_phrase", "").split() if norm(w)]
+    lines = ex["lines"]
+    if not kill:
+        return None
+    for k in range(len(lines) - 2, 0, -1):   # the latest earlier line that holds it; keep at least two lines
+        ws = [norm(w) for w in lines[k]["text"].split() if norm(w)]
+        if any(ws[i:i + len(kill)] == kill for i in range(len(ws))):
+            return {**ex, "lines": lines[:k + 1], "end": lines[k + 1]["start"]}
+    return None
 
 
 def snap_end(words, ex):
@@ -1406,6 +1438,12 @@ def main():
     for rank, ex in enumerate(exchanges, 1):  # the picker returns its best first
         key = f"{vid}_{int(ex['start'])}"
         why_not = "already in the ledger" if key in ledger else check(ex, words)
+        if why_not == KILL_MISS and (cut := end_on_kill(ex)) is not None:
+            cut["end"] = snap_end(words, cut)
+            again = check(cut, words)
+            print(f"end on kill {key}: {cut['end'] - cut['start']:.0f} s, {'stands' if not again else again}", file=sys.stderr)
+            if not again:
+                ex.clear(); ex.update(cut); why_not = ""
         if why_not:
             print(f"skip {key}: {why_not}", file=sys.stderr); continue
         stood.append((key, rank, ex))
