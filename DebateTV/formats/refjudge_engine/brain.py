@@ -16,7 +16,7 @@ arguing opposite sides, or nothing is cut), returns only exchanges where both si
 beside each one the reason a viewer stays. check() then throws out anything the transcript does not back.
   python3 brain.py <url> --dry     # the picks and their reasons, nothing judged, downloaded or filed
 """
-import argparse, datetime, fcntl, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.request
+import argparse, datetime, fcntl, html, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.request
 
 HERE = pathlib.Path(__file__).parent
 JOBS = HERE / "jobs"
@@ -180,7 +180,7 @@ Only return the JSON.
 {picks}"""
 
 
-def second_read(vid_title, channel, exchanges, words):
+def second_read(vid_title, channel, exchanges, words, edit=None):
     """An independent second pass over the picks that passed check(): {key: (verdict, why, fails)}. The first two human
     ordered reviews (10/7) kept 6 of 21 and 3 of 10 of what one reader picked, so nothing is filed on one reading."""
     g = lambda a, b: " ".join(w for t, w in words if a <= t < b)
@@ -200,7 +200,7 @@ Raw captions, THE PICK: {g(ex['start'], ex['end'] + 0.3)}
 Raw captions, 12 s AFTER: {g(ex['end'] + 0.3, ex['end'] + 12)}
 """)
     got, by = ask(REVIEW.format(title=vid_title, channel=channel, picks="\n".join(blocks)) + (WIRE_REVIEW if WIRE else "")
-                  + (EDIT_REVIEW if EDIT else ""),
+                  + (EDIT_REVIEW if (EDIT if edit is None else edit) else ""),
                   REVIEW_SCHEMA)
     return {p["key"]: (p["verdict"], p["why"].strip(), sorted(set(p.get("fails") or []))) for p in got["picks"]}, by
 
@@ -290,6 +290,108 @@ def caption_recut(ex, words):
             why = f"{end - lines[0]['start']:.1f} s even without the opening line"; continue
         cuts.append(dict(ex, lines=lines, start=lines[0]["start"], end=round(end, 2)))
     return cuts, why
+
+
+# The title name fix (11/6, ask a367): 15 of 148 second reader skips 11/5-11/6 were rule 5 because OUR title names a
+# person the captions never say ("the name Jay Dyer is never said in the captions", hev8PIXkwRg). That is our label,
+# not the clip. Mirroring the end recut: the unsaid name is replaced by the side that person argues ("a Protestant"),
+# and the pick goes to the second reader once more, from scratch; it is filed only on a fresh KEEP.
+NAME_GONE = re.compile(r"\bnames?\b|\bnamed\b|\bnaming\b", re.I)
+
+
+def absent_names(ex, words):
+    """The names in a_name / b_name the captions never say (25 s before the pick to 12 s after): {"a": .., "b": ..}.
+    Only a full name of two or more capitalised words ("Jay Dyer", "Earthling Ed") is checked: a description ("a
+    Protestant", "Student", "Protestant") is never a name, so it is never absent."""
+    heard = {norm(w) for t, w in words if ex["start"] - 25 <= t <= ex["end"] + 12}
+    gone = {}
+    for side in ("a", "b"):
+        name = ex.get(f"{side}_name") or ""
+        if not name[:1].isupper():
+            continue   # "a Protestant", "an atheist": a description, not a name
+        caps = [norm(w) for w in name.split() if w[:1].isupper() and len(norm(w)) > 2]
+        if len(caps) >= 2 and len(caps) == len([w for w in name.split() if norm(w)]) and not any(c in heard for c in caps):
+            gone[side] = name
+    return gone
+
+
+def name_fault(verdict, why, fails, ex, words):
+    """The second reader faults rule 5 for a name, and a name in our title is in fact not in the captions."""
+    return verdict == "WEAK" and 5 in fails and bool(NAME_GONE.search(why)) and bool(absent_names(ex, words))
+
+
+LABEL_SCHEMA = {
+    "type": "object", "additionalProperties": False, "required": ["picks"],
+    "properties": {"picks": {"type": "array", "items": {
+        "type": "object", "additionalProperties": False, "required": ["key", "a_label", "b_label"],
+        "properties": {"key": {"type": "string"}, "a_label": {"type": "string"}, "b_label": {"type": "string"}}}}},
+}
+
+LABEL = """Each pick below is a clip from a debate. Its title names a person the captions never say, so the title must call
+them by the side they argue instead. For each pick give a_label and b_label: two to four plain words for what A and B
+argue or say they are, like "a Protestant", "an Orthodox Christian", "a pro lifer", "a Harris voter", "a student".
+Keep a name only when it is listed as said. Never a political label they did not use themselves, never their race,
+never a word about their body or health, never a hint of who wins. Return every key once. Only return the JSON.
+
+{picks}"""
+
+
+def relabel(picks, words):
+    """One call for every pick whose title names someone the captions never say -> {key: ex with the new names}."""
+    blocks = []
+    for key, ex in picks:
+        gone = absent_names(ex, words)
+        blocks.append(f"## {key}\nMotion: {ex['motion']}\nA ({'never said' if 'a' in gone else 'said'}: "
+                      f"{ex['a_name']}) argues: {ex['a_side']}\nB ({'never said' if 'b' in gone else 'said'}: "
+                      f"{ex['b_name']}) argues: {ex['b_side']}\n")
+    got, _ = ask(LABEL.format(picks="\n".join(blocks)), LABEL_SCHEMA, "bulk", 600)
+    src, out = dict(picks), {}
+    for r in got["picks"]:
+        ex = src.get(r["key"])
+        if not ex:
+            continue
+        gone, new = absent_names(ex, words), dict(ex)
+        for side, name in gone.items():
+            label = re.sub(r"[^\w' ]+", " ", r.get(f"{side}_label") or "").strip()
+            if not re.match(r"(a|an|the) \w", label, re.I) or any(norm(w) in {norm(x) for x in label.split()} for w in name.split() if w[:1].isupper()):
+                break   # no "a ..." label for a person, or it keeps the unsaid name: no rename
+            new[f"{side}_name"] = label
+            for w in [name] + [x for x in name.split() if x[:1].isupper() and len(x) > 2]:
+                for f in ("hook_topic", "take_hook", "motion", "a_side", "b_side", "retention"):
+                    if new.get(f):   # every field that reaches the screen, the judge or job.json
+                        new[f] = re.sub(rf"(^|[.?!]\s+)?\b{re.escape(w)}\b",
+                                        lambda m: (m.group(1) or "") + (label[:1].upper() + label[1:] if m.group(1) is not None
+                                                                        else label), new[f])
+        else:
+            new["matchup"] = f"{new['a_name']} vs {new['b_name']}"   # the title's names are the two sides now
+            new["renamed_from"] = dict(gone)
+            out[r["key"]] = new
+    return out
+
+
+# WEAK to the beat edit (11/6, ask a366): a clip-route pick the second reader calls WEAK (a real debate, failing only
+# the clip's hook and window rules 3 to 5, never PULL) and that no recut or rename saved is not dropped: the edit
+# picker reads the captions around it (WIDEN s either side) and returns a 20 to 60 s exchange for 64_beatedit, which
+# faces check() and the second reader in edit mode, unchanged (KEEP or WEAK files, PULL never), with "mode": "edit".
+WIDEN = 40
+
+
+def edit_repick(title, channel, words, weak, avoid, n):
+    """[(ex, from_key)]: 20 to 60 s edit picks, each widened around ONE weak pick (it must contain or overlap the
+    moment the second reader called WEAK, inside WIDEN s either side of it); none overlap avoid. weak: [(key, ex)]."""
+    wins = [(k, max(0.0, ex["start"] - WIDEN), ex["end"] + WIDEN, ex) for k, ex in weak]
+    text = "\n...\n".join(transcript_text([(t, w) for t, w in words if a <= t <= b]) for _, a, b, _ in wins)
+    got, by = ask(PROMPT.format(title=title, channel=channel, n=n, transcript=text) + EDIT_NOTE, SCHEMA)
+    if not got["debate"]["two_sided"]:
+        return [], by
+    picks = []
+    for ex in got["exchanges"]:
+        src = next((k for k, a, b, w in wins if a - 1 <= ex["start"] and ex["end"] <= b + 1
+                    and ex["start"] < w["end"] and w["start"] < ex["end"]), None)   # widened around this weak pick
+        if src and not any(ex["start"] < o["end"] and o["start"] < ex["end"] for o in avoid) \
+                and not any(f == src for _, f in picks):   # one edit job per weak pick
+            picks.append((ex, src))
+    return picks, by
 
 
 class PickerDown(RuntimeError):
@@ -452,14 +554,15 @@ hold as written. Rules 3 and 4 read: the pick starts on the start of a sentence 
 the kill phrase sits in one whole sentence a stranger gets on its own. Rule 5 holds for the title."""
 
 
-def check(ex, words):
+def check(ex, words, edit=None):
     """What the picker claims, held against the transcript and the clock. -> "" when it stands, else why it is
     thrown out. (The length, turn and payoff tests came from the independent review of the first 21 picks, 10/7:
     all were real debates, but 16 ran past the 19 s that play and lost the opening they were picked for.)"""
+    EDIT_ = EDIT if edit is None else edit   # a clip-route WEAK pick re-picked for the beat edit (11/6, a366)
     lines, t0, t1 = ex["lines"], ex["start"], ex["end"]
-    if EDIT and not 20 <= t1 - t0 <= EDIT_MAX:
+    if EDIT_ and not 20 <= t1 - t0 <= EDIT_MAX:
         return f"{t1 - t0:.0f} s: an edit pick is 20 to 60"
-    if not EDIT and not 8 <= t1 - t0 <= MAX_PICK:
+    if not EDIT_ and not 8 <= t1 - t0 <= MAX_PICK:
         return f"{t1 - t0:.0f} s: only 19 s play, a pick is 8 to 19"
     said = {}
     for l in lines:
@@ -486,10 +589,10 @@ def check(ex, words):
             runs.append([l["speaker"], l["start"], t1])
     if len(runs) < (2 if WIRE else 3):     # wire mode: a claim and its rebuttal, both heard, is the news moment
         return "no back and forth (the speaker changes once)"
-    if runs[1][1] - t0 > (20 if EDIT else 10.5 if WIRE else 8):     # wire mode: a candidate's claim may run as long as any voice
+    if runs[1][1] - t0 > (20 if EDIT_ else 10.5 if WIRE else 8):     # wire mode: a candidate's claim may run as long as any voice
         return f"no reply for {runs[1][1] - t0:.0f} s: the question is a speech"
     longest = max(e - b for _, b, e in runs)
-    if longest > (25 if EDIT else 10.5):
+    if longest > (25 if EDIT_ else 10.5):
         return f"one voice for {longest:.0f} s"
     # every line is what the captions say in its own stretch of time (a line stitched from elsewhere fails)
     for k, l in enumerate(lines):
@@ -500,7 +603,7 @@ def check(ex, words):
             return f"a line is not what the transcript says at {l['start']:.0f} s"
     kill = [norm(w) for w in ex["kill_phrase"].split() if norm(w)]
     last = [norm(w) for w in lines[-1]["text"].split() if norm(w)]
-    if EDIT:  # the edit's open line may be any of the debater's sentences
+    if EDIT_:  # the edit's open line may be any of the debater's sentences
         last = [norm(w) for l in lines for w in l["text"].split() if norm(w)]
     if not kill or not any(last[i:i + len(kill)] == kill for i in range(len(last))):
         return "the kill phrase is not in the last line: the payoff is not the end"
@@ -521,6 +624,37 @@ def run(cmd, **kw):
     return subprocess.run(cmd, check=True, capture_output=True, text=True, **kw)
 
 
+def turn_tags(cap):
+    """The word tags follow the line starts, which snap to the captions a word or two off, so a turn's first word
+    ("Because", "That") went to the side before it and each side's line was cut mid sentence (11/6: beatedit refused
+    DhpfsOSNakY_723 and u14d6ajzHZw_10938, "no line of the edited debater fits the open"). The captions mark each turn
+    with ">>": every speaker change moves to the nearest mark within 2 s, between its neighbours, and the mark leaves
+    the word text (it would show on screen)."""
+    marks = [i for i, c in enumerate(cap) if c["w"].replace("&gt;", ">").startswith(">>")]
+    bounds = [i for i in range(1, len(cap)) if cap[i]["s"] != cap[i - 1]["s"]]
+    gap = lambda m, b: abs(cap[m]["t"] - cap[b]["t"])
+    owned = {b: [] for b in bounds}   # each mark goes to its nearest speaker change only (a turn the captions left
+    for m in marks:               # unmarked keeps its own place instead of taking the next turn's mark)
+        if bounds:
+            b = min(bounds, key=lambda b: (gap(m, b), b))
+            if gap(m, b) <= 2.0:
+                owned[b].append(m)
+    new = []
+    for n, b in enumerate(bounds):
+        lo = new[-1] + 1 if new else 1
+        hi = bounds[n + 1] - 1 if n + 1 < len(bounds) else len(cap) - 1
+        near = [m for m in owned[b] if lo <= m <= hi]
+        new.append(min(near, key=lambda m: gap(m, b)) if near else max(b, lo))
+    out, side, k = [], cap[0]["s"] if cap else "A", 0
+    for i, c in enumerate(cap):
+        if k < len(new) and i == new[k]:
+            side, k = cap[bounds[k]]["s"], k + 1
+        w = re.sub(r"^(?:>>|&gt;&gt;)\s*", "", c["w"]).strip()
+        if w:
+            out.append(dict(c, w=w, s=side))
+    return out
+
+
 def vtt_words(path):
     """YouTube auto-subs carry a timestamp on every word (<00:01:02.345><c> word</c>)."""
     def ts(s):
@@ -533,10 +667,10 @@ def vtt_words(path):
         line = [l for l in blk.split("\n") if "<c>" in l][0]
         first = re.match(r"([^<]+)<", line)
         if first and first.group(1).strip():
-            words.append((ts(m.group(1)), first.group(1).strip()))
+            words.append((ts(m.group(1)), html.unescape(first.group(1).strip())))
         for t, w in re.findall(r"<(\d\d:\d\d:\d\d\.\d+)><c>\s*([^<]*)</c>", line):
             if w.strip():
-                words.append((ts(t), w.strip()))
+                words.append((ts(t), html.unescape(w.strip())))   # "&gt;&gt;" is the ">>" turn mark
     return words
 
 
@@ -766,21 +900,38 @@ def main():
             read, read_by = second_read(title, channel, [(k, ex) for k, _, ex in stood], words)
         except PickerDown as e:
             sys.exit(f"picker down, {e}")
-    kept, recut = [], []
+    kept, recut, weak = [], [], []
+    verdicts = {key: read.get(key, ("PULL", "the second reader gave no verdict", [])) for key, _, _ in stood}
+    renamed = {}   # a367: picks whose title names someone the captions never say, under the sides' own labels
+    to_name = [(key, ex) for key, _, ex in stood if not EDIT and name_fault(*verdicts[key], ex, words)]
+    if to_name:
+        try:
+            renamed = relabel(to_name, words)
+        except Exception as e:   # no labels, no rename: the picks go on as they were
+            print(f"rename failed: {str(e)[-200:]}", file=sys.stderr)
     for key, rank, ex in stood:
-        verdict2, why2, fails = read.get(key, ("PULL", "the second reader gave no verdict", []))
+        verdict2, why2, fails = verdicts[key]
         if verdict2 == "KEEP" or (EDIT and verdict2 == "WEAK"):   # WEAK fails only the clip's hook and window
             # rules (3 to 5); beatedit picks its own open sentence and gates it, so an edit pick stops only on PULL
             kept.append((key, rank, ex, read_by, why2)); continue
         print(f"skip {key}: second reader, {verdict2.lower()}: {why2}", file=sys.stderr)
-        if EDIT or not end_only(verdict2, why2, fails):
+        if EDIT or verdict2 != "WEAK":
             continue
-        cuts, no_cut = caption_recut(ex, words)
+        weak.append((key, rank, ex))   # a366: a WEAK pick nothing below saves goes to the beat edit
+        base = renamed.get(key, ex)
+        if key in renamed:
+            print(f"rename {key}: {', '.join(base['renamed_from'].values())} never said, title now "
+                  f"\"{base['matchup']} {base['hook_topic']}\"", file=sys.stderr)
+        if not end_only(verdict2, why2, fails):
+            if key in renamed:   # the same lines under the new names, to the second reader again
+                recut.append((key, rank, dict(base, recut_from=key)))
+            continue
+        cuts, no_cut = caption_recut(base, words)
         if not cuts:
             print(f"recut {key}: no caption cut, {no_cut}", file=sys.stderr)
             note_recut(key, "no_cut", a.dry_read, no_cut); continue
         # only picks that can still be filed block a recut (a pulled or weak neighbour is never filed)
-        others = [e for k, _, e in stood if k != key and read.get(k, ('PULL',))[0] == 'KEEP'] + [e for _, _, e in recut]
+        others = [e for k, _, e in stood if k != key and verdicts[k][0] == 'KEEP'] + [e for _, _, e in recut]
         for n, cut in enumerate(cuts):
             key2 = f"{vid}_{int(cut['start'])}" + ("" if n == 0 else f"_{int(cut['end'])}")
             why_not = ("already in the ledger" if f"{vid}_{int(cut['start'])}" in ledger else
@@ -789,7 +940,7 @@ def main():
             if why_not:
                 print(f"recut {key} -> {key2}: {why_not}", file=sys.stderr); note_recut(key, "check", a.dry_read, why_not); continue
             print(f"recut {key} -> {key2}: {cut['start']:.1f} to {cut['end']:.1f} s, to the second reader again", file=sys.stderr)
-            cut["recut_from"] = key
+            cut["recut_from"], cut["cut_end"] = key, True
             recut.append((key2, rank, cut))
     if recut:
         try:
@@ -798,20 +949,54 @@ def main():
             read2, read2_by = {}, f"second read failed, {e}"
         for key, rank, ex in recut:
             verdict2, why2, _ = read2.get(key, ("PULL", "the second reader gave no verdict", []))
-            if verdict2 != "KEEP":     # once: a recut that is not a fresh KEEP is dropped, never recut again
-                print(f"skip {key}: recut, second reader, {verdict2.lower()}: {why2}", file=sys.stderr)
-                note_recut(key, verdict2.lower(), a.dry_read, why2, ex.get("recut_from")); continue
+            how = "recut" if ex.get("cut_end") else "renamed"
+            if verdict2 != "KEEP":     # once: a recut or rename that is not a fresh KEEP is dropped, never tried again
+                print(f"skip {key}: {how}, second reader, {verdict2.lower()}: {why2}", file=sys.stderr)
+                note_recut(key, verdict2.lower(), a.dry_read, f"[{how}] {why2}", ex.get("recut_from")); continue
             if any(k[2].get("recut_from") == ex.get("recut_from") for k in kept):
                 continue   # both ends of one pick kept: the first (the shorter) is filed
-            print(f"recut {key}: second reader, keep: {why2}", file=sys.stderr)
-            note_recut(key, "read_keep", a.dry_read, why2, ex.get("recut_from"))
-            ex["recut"] = True
-            kept.append((f"{vid}_{int(ex['start'])}", rank, ex, f"{read2_by} (recut end)", why2))   # filed under the plain key the ledger checks
+            print(f"{how} {key}: second reader, keep: {why2}", file=sys.stderr)
+            note_recut(key, "read_keep", a.dry_read, f"[{how}] {why2}", ex.get("recut_from"))
+            ex["recut"] = bool(ex.get("cut_end"))   # a recut's end already sits on its sentence end; a rename's is snapped
+            kept.append((f"{vid}_{int(ex['start'])}", rank, ex, f"{read2_by} ({'recut end' if ex['recut'] else 'renamed'})", why2))
+    saved = {ex.get("recut_from") for _, _, ex, _, _ in kept}
+    weak = [(k, r, e) for k, r, e in weak if k not in saved and set(verdicts[k][2]) <= {3, 4, 5}]
+    if weak:
+        try:
+            picks, eby = edit_repick(title, channel, words, [(k, e) for k, _, e in weak], [e for _, _, e, _, _ in kept], len(weak))
+        except Exception as e:   # the clip picks stand as they are; no edit job this run
+            picks, eby = [], ""
+            print(f"edit repick failed: {str(e)[-200:]}", file=sys.stderr)
+        print(f"edit repick {eby}: {len(picks)} 20 to 60 s picks around {len(weak)} weak "
+              f"({', '.join(k for k, _, _ in weak)})", file=sys.stderr)
+        stood_e = []
+        for ex, src in picks:
+            ex["edit_from"] = src
+            key = f"{vid}_{int(ex['start'])}"
+            why_not = ("already in the ledger" if key in ledger else
+                       "same key as a kept pick" if any(k == key for k, *_ in kept) else check(ex, words, edit=True))
+            if why_not:
+                print(f"skip edit {key}: {why_not}", file=sys.stderr); continue
+            stood_e.append((key, ex))
+        if stood_e:
+            try:
+                read3, read3_by = second_read(title, channel, stood_e, words, edit=True)
+            except Exception as e:
+                read3, read3_by = {}, f"second read failed, {e}"
+            for key, ex in stood_e:
+                verdict3, why3, _ = read3.get(key, ("PULL", "the second reader gave no verdict", []))
+                if verdict3 == "PULL":   # edit mode files KEEP and WEAK, never PULL (as brain.py --edit does)
+                    print(f"skip edit {key}: second reader, pull: {why3}", file=sys.stderr); continue
+                print(f"edit {key}: second reader, {verdict3.lower()}: {why3}", file=sys.stderr)
+                ex["edit"] = True   # edit_from: the one weak pick it was widened around
+                kept.append((key, 0, ex, f"{read3_by} (edit from weak)", why3))
     if a.dry_read:
         print(json.dumps({"video": {"id": vid, "title": title}, "first_read": {k: list(v) for k, v in read.items()},
-                          "kept": [{"key": k, "recut": bool(ex.get("recut")), "start": ex["start"], "end": ex["end"],
+                          "kept": [{"key": k, "recut": bool(ex.get("recut")), "renamed": ex.get("renamed_from"),
+                                    "edit": bool(ex.get("edit")), "start": ex["start"], "end": ex["end"],
                                     "lines": ex["lines"], "second_read": w} for k, _, ex, _, w in kept]}, indent=1))
-        print(f"dry read: {len(kept)} kept ({sum(1 for k in kept if k[2].get('recut'))} by recut) of "
+        print(f"dry read: {len(kept)} kept ({sum(1 for k in kept if k[2].get('recut'))} by recut, "
+              f"{sum(1 for k in kept if k[2].get('renamed_from'))} renamed, {sum(1 for k in kept if k[2].get('edit'))} edit) of "
               f"{len(exchanges)} exchanges", file=sys.stderr)
         return
     for key, rank, ex, read_by, why2 in kept:
@@ -820,12 +1005,14 @@ def main():
         ex["start"] = ex["lines"][0]["start"]  # open on the question itself, never on leftover words
         if not ex.get("recut"):   # a recut's end already sits on its sentence end, clear of the next word
             ex["end"] = snap_end(words, ex)
-        if ex["end"] - ex["start"] > (EDIT_MAX if EDIT else MAX_PICK):
+        edit = EDIT or bool(ex.get("edit"))
+        if ex["end"] - ex["start"] > (EDIT_MAX if edit else MAX_PICK):
             print(f"skip {key}: {ex['end'] - ex['start']:.0f} s once snapped to the captions", file=sys.stderr); continue
         # caption words for this exchange, each tagged with whoever's line it falls in
         span = [(t, w) for t, w in words if ex["start"] - 0.05 <= t <= ex["end"] + 0.05]
         starts = [(l["start"], l["speaker"]) for l in ex["lines"]]
-        cap = [{"t": round(t, 2), "w": w, "s": max([s for s in starts if s[0] <= t + 0.05] or [starts[0]])[1]} for t, w in span]
+        cap = turn_tags([{"t": round(t, 2), "w": w, "s": max([s for s in starts if s[0] <= t + 0.05] or [starts[0]])[1]}
+                         for t, w in span])
         req, verdict = judge(ex)
         if not verdict.get("success"):
             print(f"judge failed {key}", file=sys.stderr); continue
@@ -842,20 +1029,20 @@ def main():
         ex["take_hook"] = re.sub(r"\s+-+\s+|\s*[\u2013\u2014]\s*", " ", ex.get("take_hook") or "").strip()
         if len(re.findall(r"[\w'%]+", ex["take_hook"].replace("*", ""))) > 7:
             ex["take_hook"] = ""   # over the copy rule's seven words: the title falls back to the matchup
-        job = {"key": key, **({"mode": "edit"} if EDIT else {}), "source": {"url": a.url, "id": vid, "title": title, "channel": channel, "t0": round(t0, 2)},
+        job = {"key": key, **({"mode": "edit"} if edit else {}), "source": {"url": a.url, "id": vid, "title": title, "channel": channel, "t0": round(t0, 2)},
                **ex, "picker": {"by": by, "at": time.strftime("%F %T"), "rank": rank, "video": verdict_on_video["why"],
                           "second_reader": read_by, "second_read": why2},
                "words": cap, "judge_request": req, "judge_response": verdict}
         (d / "job.json").write_text(json.dumps(job, indent=1))
-        if ex.get("recut"):
-            note_recut(key, "filed", False, "", ex.get("recut_from"))
+        if ex.get("recut_from"):
+            note_recut(key, "filed", False, "[recut]" if ex.get("recut") else "[renamed]", ex.get("recut_from"))
         # several brains run at once (render-farm feeder): merge with what the others wrote since we started
         ledger = {**(json.loads(LEDGER.read_text()) if LEDGER.exists() else {}), key: {"title": title, "motion": ex["motion"]}}
         tmp = LEDGER.with_suffix(f".{os.getpid()}.tmp")
         tmp.write_text(json.dumps(ledger, indent=1))
         tmp.replace(LEDGER)
         made += 1
-        print(f"job {key}: {ex['matchup']} — {ex['motion']}", file=sys.stderr)
+        print(f"job {key}: {'[edit] ' if ex.get('edit') else ''}{ex['matchup']} — {ex['motion']}", file=sys.stderr)
         print(f"  holds because: {ex['retention']}", file=sys.stderr)
     print(f"{made} jobs from {len(exchanges)} exchanges", file=sys.stderr)
 
