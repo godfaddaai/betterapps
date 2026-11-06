@@ -484,7 +484,7 @@ def check(ex, words):
         if l["speaker"] != runs[-1][0]:
             runs[-1][2] = l["start"]
             runs.append([l["speaker"], l["start"], t1])
-    if len(runs) < (2 if WIRE else 3):     # wire mode: a claim and its rebuttal, both heard, is the news moment
+    if len(runs) < (2 if WIRE or EDIT else 3):     # wire and edit mode: a claim and its rebuttal, both heard (EDIT_NOTE test 3)
         return "no back and forth (the speaker changes once)"
     if runs[1][1] - t0 > (20 if EDIT else 10.5 if WIRE else 8):     # wire mode: a candidate's claim may run as long as any voice
         return f"no reply for {runs[1][1] - t0:.0f} s: the question is a speech"
@@ -579,6 +579,55 @@ def fetch(url, work):
         return info, vtt_words(next(work.glob("subs*.vtt")))
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, StopIteration):
         return info, transcript_words(info["id"])
+
+
+# One picker call over a whole 2 to 4 hour show (17k to 50k caption words) returned 1 or 2 exchanges per video
+# (brain logs 11/6: ya_hAH3D7ZI 50213 words -> 2, zTjpgYfYml8 17672 words -> 1), so most of every source went unread.
+# The picker now reads the captions in windows of WINDOW_WORDS (about 40 minutes of talk) that overlap by
+# WINDOW_OVERLAP, each window asked for up to --max picks; the bar (check, second reader) is the same.
+WINDOW_WORDS = int(os.environ.get("BRAIN_WINDOW_WORDS", 7000))
+WINDOW_OVERLAP = 400
+
+
+def windows(words):
+    """Caption words -> overlapping slices of at most WINDOW_WORDS (one slice when the video is short)."""
+    if len(words) <= WINDOW_WORDS * 1.3:
+        return [words]
+    out, i = [], 0
+    while i < len(words):
+        out.append(words[i:i + WINDOW_WORDS])
+        if i + WINDOW_WORDS >= len(words):
+            break
+        i += WINDOW_WORDS - WINDOW_OVERLAP
+    if len(out) > 1 and len(out[-1]) < WINDOW_WORDS // 4:   # a short tail rides with the window before it
+        tail = out.pop()
+        out[-1] = out[-1] + tail[WINDOW_OVERLAP:]
+    return out
+
+
+def pick_windows(a, title, channel, words):
+    """Ask the picker window by window and merge -> ({"debate", "exchanges"}, by). The video is two sided when any
+    window rules it so; exchanges interleave by each window's rank (every window's best first) and an exchange that
+    starts within 15 s of one already taken (the overlap) is dropped."""
+    tail = (WIRE_NOTE if a.wire else "") + (EDIT_NOTE if a.edit else "")
+    parts = windows(words)
+    got_all, by = [], ""
+    for k, part in enumerate(parts, 1):
+        got, by = ask(PROMPT.format(title=title, channel=channel, n=a.max, transcript=transcript_text(part)) + tail, SCHEMA)
+        n = len(got["exchanges"]) if got["debate"]["two_sided"] else 0
+        if len(parts) > 1:
+            print(f"window {k}/{len(parts)} ({part[0][0]:.0f} to {part[-1][0]:.0f} s): {n} exchanges", file=sys.stderr)
+        got_all.append(got)
+    sided = [g for g in got_all if g["debate"]["two_sided"]]
+    verdict = (sided or got_all)[0]["debate"]
+    taken = []
+    for r in range(max([len(g["exchanges"]) for g in sided] or [0])):
+        for g in sided:
+            if r < len(g["exchanges"]):
+                ex = g["exchanges"][r]
+                if all(abs(ex["start"] - t["start"]) > 15 for t in taken):
+                    taken.append(ex)
+    return {"debate": verdict, "exchanges": taken}, by + (f", {len(parts)} windows" if len(parts) > 1 else "")
 
 
 def transcript_text(words):
@@ -733,8 +782,7 @@ def main():
         got, by = json.loads(cache.read_text()), "cached picks"
     else:
         try:
-            got, by = ask(PROMPT.format(title=title, channel=channel, n=a.max, transcript=transcript_text(words))
-                          + (WIRE_NOTE if a.wire else "") + (EDIT_NOTE if a.edit else ""), SCHEMA)
+            got, by = pick_windows(a, title, channel, words)
         except PickerDown as e:
             sys.exit(f"picker down, {e}")  # the feeder reads "usage limit" here and backs off instead of failing the source
         if a.wire:
