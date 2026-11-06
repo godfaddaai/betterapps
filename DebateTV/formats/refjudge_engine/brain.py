@@ -394,6 +394,126 @@ def edit_repick(title, channel, words, weak, avoid, n):
     return picks, by
 
 
+# Footage beatedit can cut (11/6, ask a391): beatedit.py render refused all 4 edit jobs filed after a366 on the
+# picture, never on the words: DhpfsOSNakY_723 and u14d6ajzHZw_10938 "no line of the edited debater fits the open"
+# (the side REF favours is a crowd member, never on camera for a whole 3 to 6.3 s line), koC8A86BS2k_3087 a blank
+# split screen panel, t_JmqOFTLjI_1162 edited-in text. So an edit job is filed only when beatedit itself has cut the
+# window and found its open: two cheap skips first (a 1 vs N show where the crowd side wins, a split screen call),
+# then `beatedit.py spec` (prep, the face track, pick_open, the beats and the text read; no build) on the job staged
+# where only beatedit looks. Off with BRAIN_BEATEDIT_GATE=0.
+BEATEDIT = pathlib.Path(os.path.expanduser(os.environ.get(
+    "BRAIN_BEATEDIT", "~/Documents/ARENA/render-farm/formats/beatedit.py")))
+BEATEDIT_GATE = os.environ.get("BRAIN_BEATEDIT_GATE", "1") != "0"
+GATE_SECS = int(os.environ.get("BRAIN_BEATEDIT_SECS", 25 * 60))
+GATE_LOG = pathlib.Path(os.path.expanduser("~/.render-farm/beatedit_gate.jsonl"))
+ONE_VS_N = re.compile(r"\b1\s+((?:[A-Za-z][\w']*\s+){0,2}?)(?:vs\.?|v|versus|confronts?|against|faces?|takes on|debates?)\s+"
+                      r"(?:\d+|a crowd|the crowd)\b|\b\d+\s+(?:[A-Za-z][\w']*\s+){0,2}?(?:vs\.?|v|versus)\s+1\s+"
+                      r"((?:[A-Za-z][\w']*\s*){1,2})|surrounded", re.I)
+SPLIT = re.compile(r"\blive on \w|\bon (?:his |her |the )?stream\b|\bstream(?:er|ed|ing)?\b|\btwitch\b|\bkick\b|"
+                   r"\bzoom\b|\bfacetime\b|\bvideo call\b|\bcalls? (?:in|out)\b|\bphone call\b|\bspaces\b|\bremote\b|"
+                   r"\beye to eye\b", re.I)
+
+
+def one_side(title, channel):
+    """In a 1 vs N show ("1 Atheist vs 10 Christians", "Surrounded"), the words naming the one: the noun after
+    the "1" and every capitalised name in the title and channel. None when the title is not a 1 vs N show."""
+    m = ONE_VS_N.search(title or "")
+    if not m:
+        return None
+    one = {norm(w) for g in m.groups() if g for w in g.split() if len(norm(w)) > 2}
+    caps = re.findall(r"\b[A-Z][\w']+(?:\s+[A-Z][\w']+)+", f"{title} {channel or ''}")   # "Adam Green", "King Kenny"
+    return one | {norm(w) for c in caps for w in c.split() if len(norm(w)) > 2}
+
+
+def crowd_wins(ex, verdict, title, channel):
+    """The side REF favours (beatedit edits that side) is the crowd of a 1 vs N show: its label is not the one's and
+    the other side's is. The crowd member is on camera for seconds at a time, so beatedit finds no open (u14d6ajzHZw)."""
+    one = one_side(title, channel)
+    try:
+        v = verdict["averageScores"]
+        win = "a" if v["participantA"] > v["participantB"] else "b" if v["participantB"] > v["participantA"] else None
+    except (KeyError, TypeError):
+        return False
+    if one is None or win is None:
+        return False
+    hit = lambda side: bool({norm(w) for w in (ex.get(f"{side}_name") or "").split()} & one)
+    lose = "b" if win == "a" else "a"
+    return not hit(win) and hit(lose)
+
+
+def split_screen(title, channel):
+    """A call or a stream (a split screen, a guest in a box): beatedit refuses the blank panel (koC8A86BS2k)."""
+    return bool(SPLIT.search(f"{title or ''} {channel or ''}"))
+
+
+def beatedit_dirs():
+    """Where beatedit (chain_formats) reads a job before the engine's jobs dir: data/chain_jobs/<key>/job.json and
+    $TMPDIR/beatedit/chain/src/<key>/src.mp4. Neither farm.py nor beatedit_feed.py looks there."""
+    work = os.path.join(os.environ.get("TMPDIR") or os.path.expanduser("~/Library/Caches"), "beatedit")
+    return BEATEDIT.parent / "data" / "chain_jobs", pathlib.Path(work, "chain", "src"), pathlib.Path(work, "clips")
+
+
+def note_gate(key, outcome, why=""):
+    try:
+        GATE_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with GATE_LOG.open("a") as f:
+            f.write(json.dumps({"at": time.strftime("%F %T"), "key": key, "outcome": outcome, "why": why[:300]}) + "\n")
+    except OSError:
+        pass
+
+
+def gated():
+    """{key: outcome} of every edit job beatedit already refused, so a rerun never judges or downloads it again."""
+    out = {}
+    for line in GATE_LOG.read_text().splitlines() if GATE_LOG.exists() else ():
+        try:
+            r = json.loads(line)
+            out[r["key"]] = r["outcome"]
+        except (ValueError, KeyError, TypeError):
+            continue
+    return out
+
+
+def beatedit_spec(key, job, src):
+    """Stage the job where only beatedit reads it, run `beatedit.py spec <key>` -> ("pass" | "refused" | "host", why).
+    refused: beatedit stopped on the footage (its SystemExit line). host: a traceback, a timeout, no beatedit, the Air
+    away; the job is not filed this run and is not marked refused. The staged files go either way; the cut beatedit
+    cached ($TMPDIR/beatedit/clips/clip_<key>_*) stays for the render on a pass and is removed on a refusal."""
+    if not BEATEDIT.exists():
+        return "host", f"no beatedit at {BEATEDIT}"
+    jobs, srcs, clips = beatedit_dirs()
+    jd, sd = jobs / key, srcs / key
+    try:
+        jd.mkdir(parents=True, exist_ok=True)
+        sd.mkdir(parents=True, exist_ok=True)
+        (jd / "job.json").write_text(json.dumps(job, indent=1))
+        shutil.copy(src, sd / "src.mp4")
+        try:
+            r = subprocess.run([sys.executable, str(BEATEDIT), "spec", key], capture_output=True, text=True,
+                               timeout=GATE_SECS, cwd=str(BEATEDIT.parent), start_new_session=True)
+        except subprocess.TimeoutExpired:
+            return "host", f"beatedit spec over {GATE_SECS} s"
+        text = (r.stderr or "").strip()
+        if r.returncode == 0:
+            try:
+                spec = json.loads(r.stdout)
+                o = spec["open"]
+                return "pass", f"line {o['a0']:.2f}+{o['voice_len']:.2f} s, red word {spec['red']['text']}, {len(spec['shots'])} beats"
+            except (ValueError, KeyError, TypeError):
+                return "pass", (text.splitlines() or [""])[-1][:300]
+        last = (text.splitlines() or [f"exit {r.returncode}"])[-1]
+        why = last.split(". this format needs")[0][:300]
+        return ("host" if "Traceback" in text else "refused"), why
+    finally:
+        shutil.rmtree(jd, ignore_errors=True)
+        shutil.rmtree(sd, ignore_errors=True)
+
+
+def drop_cache(key):
+    for d in beatedit_dirs()[2].glob(f"clip_{key}_*"):
+        shutil.rmtree(d, ignore_errors=True)
+
+
 class PickerDown(RuntimeError):
     """No picker can answer right now (both out of usage, or not logged in): the host's problem, not the video's."""
 
@@ -1025,6 +1145,10 @@ def main():
             kept.append((f"{vid}_{int(ex['start'])}", rank, ex, f"{read2_by} ({'recut end' if ex['recut'] else 'renamed'})", why2))
     saved = {ex.get("recut_from") for _, _, ex, _, _ in kept}
     weak = [(k, r, e) for k, r, e in weak if k not in saved and set(verdicts[k][2]) <= {3, 4, 5}]
+    if weak and BEATEDIT_GATE and split_screen(title, channel):   # a391: beatedit refuses the blank panel
+        print(f"no edit repick: a call or stream (split screen), beatedit cannot cut it ({', '.join(k for k, _, _ in weak)})",
+              file=sys.stderr)
+        weak = []
     if weak:
         try:
             picks, eby = edit_repick(title, channel, words, [(k, e) for k, _, e in weak], [e for _, _, e, _, _ in kept], len(weak))
@@ -1033,11 +1157,12 @@ def main():
             print(f"edit repick failed: {str(e)[-200:]}", file=sys.stderr)
         print(f"edit repick {eby}: {len(picks)} 20 to 60 s picks around {len(weak)} weak "
               f"({', '.join(k for k, _, _ in weak)})", file=sys.stderr)
-        stood_e = []
+        stood_e, refused = [], {k: v for k, v in gated().items() if v in ("refused", "crowd")}
         for ex, src in picks:
             ex["edit_from"] = src
             key = f"{vid}_{int(ex['start'])}"
             why_not = ("already in the ledger" if key in ledger else
+                       f"beatedit gate said {refused[key]} before" if key in refused else
                        "same key as a kept pick" if any(k == key for k, *_ in kept) else check(ex, words, edit=True))
             if why_not:
                 print(f"skip edit {key}: {why_not}", file=sys.stderr); continue
@@ -1080,6 +1205,9 @@ def main():
         req, verdict = judge(ex)
         if not verdict.get("success"):
             print(f"judge failed {key}", file=sys.stderr); continue
+        if edit and BEATEDIT_GATE and crowd_wins(ex, verdict, title, channel):   # a391: the crowd side is never on
+            print(f"skip edit {key}: 1 vs N show and REF favours the crowd side, beatedit finds no open", file=sys.stderr)
+            note_gate(key, "crowd"); continue                                    # camera for a whole line
         d = JOBS / key
         d.mkdir(parents=True, exist_ok=True)
         t0 = max(0, ex["start"] - PAD)
@@ -1097,6 +1225,17 @@ def main():
                **ex, "picker": {"by": by, "at": time.strftime("%F %T"), "rank": rank, "video": verdict_on_video["why"],
                           "second_reader": read_by, "second_read": why2},
                "words": cap, "judge_request": req, "judge_response": verdict}
+        if edit and BEATEDIT_GATE:   # a391: file an edit job only once beatedit has cut the window and found its open
+            outcome, why = beatedit_spec(key, job, d / "src.mp4")
+            note_gate(key, outcome, why)
+            if outcome != "pass":
+                print(f"skip edit {key}: beatedit spec {'refused' if outcome == 'refused' else 'did not run'}: {why}",
+                      file=sys.stderr)
+                shutil.rmtree(d, ignore_errors=True)
+                if outcome == "refused":
+                    drop_cache(key)
+                continue
+            print(f"beatedit spec {key}: pass, {why}", file=sys.stderr)
         (d / "job.json").write_text(json.dumps(job, indent=1))
         if ex.get("recut_from"):
             note_recut(key, "filed", False, "[recut]" if ex.get("recut") else "[renamed]", ex.get("recut_from"))
