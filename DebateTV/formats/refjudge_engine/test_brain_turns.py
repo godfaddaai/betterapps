@@ -1,19 +1,21 @@
 """Tests for brain.py's caption turn marks (11/6, asks a366/a367): YouTube VTT words carry ">>" as "&gt;&gt;", and the
 job's speaker tags move onto those marks so each side's line is whole sentences (beatedit's open needs one).
-Run: python3 test_brain_turns.py   (no network, no models: the two functions are read out of brain.py alone)"""
-import html, pathlib, re, tempfile
+Run: python3 test_brain_turns.py   (no network, no models: importing brain runs nothing, main sits under __main__)"""
+import os, pathlib, sys, tempfile
 
-SRC = (pathlib.Path(__file__).parent / "brain.py").read_text()
-NS = {"re": re, "html": html}
-for name in ("turn_tags", "vtt_words"):
-    i = SRC.index(f"def {name}(")
-    exec(SRC[i:SRC.index("\ndef ", i + 5)], NS, NS)
+sys.path.insert(0, str(pathlib.Path(__file__).parent))
+import brain  # noqa: E402
+
+NS = {"turn_tags": brain.turn_tags, "vtt_words": brain.vtt_words}
 
 
 def test_vtt_unescapes_turn_mark():
-    p = pathlib.Path(tempfile.mktemp(suffix=".vtt"))
-    p.write_text("WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nHi<00:00:01.500><c> &gt;&gt; No</c><00:00:01.800><c> way</c>\n")
-    assert NS["vtt_words"](p) == [(1.0, "Hi"), (1.5, ">> No"), (1.8, "way")]
+    with tempfile.NamedTemporaryFile("w", suffix=".vtt", delete=False) as f:
+        f.write("WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nHi<00:00:01.500><c> &gt;&gt; No</c><00:00:01.800><c> way</c>\n")
+    try:
+        assert NS["vtt_words"](pathlib.Path(f.name)) == [(1.0, "Hi"), (1.5, ">> No"), (1.8, "way")]
+    finally:
+        os.unlink(f.name)
 
 
 def test_change_moves_onto_mark_and_mark_leaves_text():
