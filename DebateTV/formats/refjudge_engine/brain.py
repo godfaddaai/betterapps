@@ -484,7 +484,7 @@ def check(ex, words):
         if l["speaker"] != runs[-1][0]:
             runs[-1][2] = l["start"]
             runs.append([l["speaker"], l["start"], t1])
-    if len(runs) < (2 if WIRE or EDIT else 3):     # wire and edit mode: a claim and its rebuttal, both heard (EDIT_NOTE test 3)
+    if len(runs) < (2 if WIRE else 3):     # wire mode: a claim and its rebuttal, both heard, is the news moment
         return "no back and forth (the speaker changes once)"
     if runs[1][1] - t0 > (20 if EDIT else 10.5 if WIRE else 8):     # wire mode: a candidate's claim may run as long as any voice
         return f"no reply for {runs[1][1] - t0:.0f} s: the question is a speech"
@@ -607,13 +607,20 @@ def windows(words):
 
 def pick_windows(a, title, channel, words):
     """Ask the picker window by window and merge -> ({"debate", "exchanges"}, by). The video is two sided when any
-    window rules it so; exchanges interleave by each window's rank (every window's best first) and an exchange that
-    starts within 15 s of one already taken (the overlap) is dropped."""
+    window rules it so; exchanges interleave by each window's rank (every window's best first), one that shares any
+    time with one already taken (the overlap) is dropped, and --max caps the total. A picker that goes down after the
+    first window keeps what the earlier windows found."""
     tail = (WIRE_NOTE if a.wire else "") + (EDIT_NOTE if a.edit else "")
     parts = windows(words)
     got_all, by = [], ""
     for k, part in enumerate(parts, 1):
-        got, by = ask(PROMPT.format(title=title, channel=channel, n=a.max, transcript=transcript_text(part)) + tail, SCHEMA)
+        try:
+            got, by = ask(PROMPT.format(title=title, channel=channel, n=a.max, transcript=transcript_text(part)) + tail, SCHEMA)
+        except PickerDown:
+            if not got_all:
+                raise
+            print(f"window {k}/{len(parts)}: picker down, keeping the {k - 1} windows read", file=sys.stderr)
+            break
         n = len(got["exchanges"]) if got["debate"]["two_sided"] else 0
         if len(parts) > 1:
             print(f"window {k}/{len(parts)} ({part[0][0]:.0f} to {part[-1][0]:.0f} s): {n} exchanges", file=sys.stderr)
@@ -625,9 +632,11 @@ def pick_windows(a, title, channel, words):
         for g in sided:
             if r < len(g["exchanges"]):
                 ex = g["exchanges"][r]
-                if all(abs(ex["start"] - t["start"]) > 15 for t in taken):
+                if all(ex["end"] <= t["start"] or ex["start"] >= t["end"] for t in taken):   # no shared time
                     taken.append(ex)
-    return {"debate": verdict, "exchanges": taken}, by + (f", {len(parts)} windows" if len(parts) > 1 else "")
+    # one cap for the whole source, as before windows: --max picks reach the checks and the one second read, so
+    # picker calls grow with the show's length (about 1 per 40 min) but the second read and judge cost do not
+    return {"debate": verdict, "exchanges": taken[:a.max]}, by + (f", {len(parts)} windows" if len(parts) > 1 else "")
 
 
 def transcript_text(words):
