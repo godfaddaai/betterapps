@@ -256,42 +256,40 @@ def recut_stats():
 
 def caption_recut(ex, words):
     """The end recut from the captions alone (11/6, ask a346): the second reader said the payoff runs straight on into
-    more of the same reply, so the end moves to where that sentence finishes in the caption words (a . ? ! when the
-    captions are punctuated, else the first pause of a second or more), at most 9 s on. The words heard up to there
-    join the last line, so the kill phrase stays in it. If the pick then runs past MAX_PICK, opening lines drop until
-    it fits (never below two lines). -> (cut, "") or (None, why there is no cut). check() and the second reader
-    then rule on it from scratch, unchanged."""
-    lines = [dict(l) for l in ex["lines"]]
-    last = lines[-1]
-    tail = [norm(w) for w in last["text"].split() if norm(w)]
+    more of the same reply, so the end moves to where that speaker's sentence finishes in the caption words (a . ? !
+    when the captions are punctuated, else a pause of a second or more), at most 9 s on and never past a ">>" turn
+    mark. Two ends are offered when they differ: the first sentence end, and the last one before the turn mark or the
+    9 s (the reply's finish). The words heard up to the end join the last line, so the kill phrase stays in it. If a
+    cut then runs past MAX_PICK, opening lines drop until it fits (never below two lines). -> ([cuts], why none).
+    check() and the second reader rule on each from scratch, unchanged; at most one is filed."""
+    tail = [norm(w) for w in ex["lines"][-1]["text"].split() if norm(w)]
     if not tail:
-        return None, "empty last line"
-    near = [t for t, w in words if norm(w) == tail[-1] and t > last["start"] and abs(t - ex["end"]) <= 4]
+        return [], "empty last line"
+    near = [t for t, w in words if norm(w) == tail[-1] and t > ex["lines"][-1]["start"] and abs(t - ex["end"]) <= 4]
     t_last = min(near, key=lambda t: abs(t + 0.5 - ex["end"])) if near else ex["end"] - 0.5
     after = [(t, w) for t, w in words if t > t_last + 0.05]
-    if not after:
-        return None, "no caption words after the payoff"
     punct = any(w[-1:] in ".?!" for t, w in words if t_last - 30 <= t <= t_last + 30)
-    seq, end = [], None
+    ends = []   # (index of the sentence's last word in after, end time)
     for k, (t, w) in enumerate(after):
-        if t > t_last + 9:
+        if t > t_last + 9 or w.startswith(">>"):
             break
-        seq.append(w)
         nxt = after[k + 1][0] if k + 1 < len(after) else None   # None: the video's last word
         if (punct and w[-1:] in ".?!") or (not punct and (nxt is None or nxt - t >= 1.0)):
-            end = t + 0.5 if nxt is None else min(t + 0.5, nxt - 0.05)
-            break
-    if end is None:
-        return None, "the sentence does not finish within 9 s"
-    last["text"] = last["text"].rstrip() + " " + " ".join(seq)
-    lines[-1] = last
-    while end - lines[0]["start"] > MAX_PICK and len(lines) > 2:
-        lines.pop(0)
-        lines[0]["start"] = snap(words, lines[0]["start"], lines[0]["text"])
-    if end - lines[0]["start"] > MAX_PICK:
-        return None, f"{end - lines[0]['start']:.1f} s even without the opening line"
-    cut = dict(ex, lines=lines, start=lines[0]["start"], end=round(end, 2))
-    return cut, ""
+            # the reader sees the captions to end + 0.3 and the clip plays to the end: the next word stays out of both
+            ends.append((k, t + 0.5 if nxt is None else min(t + 0.5, nxt - 0.35)))
+    if not ends:
+        return [], "the sentence does not finish within 9 s"
+    cuts, why = [], ""
+    for k, end in dict.fromkeys([ends[0], ends[-1]]):
+        lines = [dict(l) for l in ex["lines"]]
+        lines[-1]["text"] = lines[-1]["text"].rstrip() + " " + " ".join(w for _, w in after[:k + 1])
+        while end - lines[0]["start"] > MAX_PICK and len(lines) > 2:
+            lines.pop(0)
+            lines[0]["start"] = snap(words, lines[0]["start"], lines[0]["text"])
+        if end - lines[0]["start"] > MAX_PICK:
+            why = f"{end - lines[0]['start']:.1f} s even without the opening line"; continue
+        cuts.append(dict(ex, lines=lines, start=lines[0]["start"], end=round(end, 2)))
+    return cuts, why
 
 
 class PickerDown(RuntimeError):
@@ -777,20 +775,21 @@ def main():
         print(f"skip {key}: second reader, {verdict2.lower()}: {why2}", file=sys.stderr)
         if EDIT or not end_only(verdict2, why2, fails):
             continue
-        cut, no_cut = caption_recut(ex, words)
-        if not cut:
+        cuts, no_cut = caption_recut(ex, words)
+        if not cuts:
             print(f"recut {key}: no caption cut, {no_cut}", file=sys.stderr)
             note_recut(key, "no_cut", a.dry_read, no_cut); continue
-        key2 = f"{vid}_{int(cut['start'])}"
         others = [e for k, _, e in stood if k != key] + [e for _, _, e in recut]
-        why_not = ("already in the ledger" if key2 in ledger else
-                   "overlaps another pick" if any(cut["start"] < o["end"] and o["start"] < cut["end"] for o in others)
-                   else check(cut, words))
-        if why_not:
-            print(f"recut {key} -> {key2}: {why_not}", file=sys.stderr); note_recut(key, "check", a.dry_read, why_not); continue
-        print(f"recut {key} -> {key2}: {cut['start']:.1f} to {cut['end']:.1f} s, to the second reader again", file=sys.stderr)
-        cut["recut_from"] = key
-        recut.append((key2, rank, cut))
+        for n, cut in enumerate(cuts):
+            key2 = f"{vid}_{int(cut['start'])}" + ("" if n == 0 else f"_{int(cut['end'])}")
+            why_not = ("already in the ledger" if f"{vid}_{int(cut['start'])}" in ledger else
+                       "overlaps another pick" if any(cut["start"] < o["end"] and o["start"] < cut["end"] for o in others)
+                       else check(cut, words))
+            if why_not:
+                print(f"recut {key} -> {key2}: {why_not}", file=sys.stderr); note_recut(key, "check", a.dry_read, why_not); continue
+            print(f"recut {key} -> {key2}: {cut['start']:.1f} to {cut['end']:.1f} s, to the second reader again", file=sys.stderr)
+            cut["recut_from"] = key
+            recut.append((key2, rank, cut))
     if recut:
         try:
             read2, read2_by = second_read(title, channel, [(k, ex) for k, _, ex in recut], words)
@@ -801,6 +800,8 @@ def main():
             if verdict2 != "KEEP":     # once: a recut that is not a fresh KEEP is dropped, never recut again
                 print(f"skip {key}: recut, second reader, {verdict2.lower()}: {why2}", file=sys.stderr)
                 note_recut(key, verdict2.lower(), a.dry_read, why2, ex.get("recut_from")); continue
+            if any(k[2].get("recut_from") == ex.get("recut_from") for k in kept):
+                continue   # both ends of one pick kept: the first (the shorter) is filed
             print(f"recut {key}: second reader, keep: {why2}", file=sys.stderr)
             note_recut(key, "read_keep", a.dry_read, why2, ex.get("recut_from"))
             ex["recut"] = True
@@ -816,7 +817,8 @@ def main():
         for l in ex["lines"]:
             l["start"] = snap(words, l["start"], l["text"])
         ex["start"] = ex["lines"][0]["start"]  # open on the question itself, never on leftover words
-        ex["end"] = snap_end(words, ex)
+        if not ex.get("recut"):   # a recut's end already sits on its sentence end, clear of the next word
+            ex["end"] = snap_end(words, ex)
         if ex["end"] - ex["start"] > (EDIT_MAX if EDIT else MAX_PICK):
             print(f"skip {key}: {ex['end'] - ex['start']:.0f} s once snapped to the captions", file=sys.stderr); continue
         # caption words for this exchange, each tagged with whoever's line it falls in
