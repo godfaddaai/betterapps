@@ -16,7 +16,7 @@ arguing opposite sides, or nothing is cut), returns only exchanges where both si
 beside each one the reason a viewer stays. check() then throws out anything the transcript does not back.
   python3 brain.py <url> --dry     # the picks and their reasons, nothing judged, downloaded or filed
 """
-import argparse, datetime, fcntl, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.request
+import argparse, datetime, fcntl, html, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.request
 
 HERE = pathlib.Path(__file__).parent
 JOBS = HERE / "jobs"
@@ -624,6 +624,37 @@ def run(cmd, **kw):
     return subprocess.run(cmd, check=True, capture_output=True, text=True, **kw)
 
 
+def turn_tags(cap):
+    """The word tags follow the line starts, which snap to the captions a word or two off, so a turn's first word
+    ("Because", "That") went to the side before it and each side's line was cut mid sentence (11/6: beatedit refused
+    DhpfsOSNakY_723 and u14d6ajzHZw_10938, "no line of the edited debater fits the open"). The captions mark each turn
+    with ">>": every speaker change moves to the nearest mark within 2 s, between its neighbours, and the mark leaves
+    the word text (it would show on screen)."""
+    marks = [i for i, c in enumerate(cap) if c["w"].replace("&gt;", ">").startswith(">>")]
+    bounds = [i for i in range(1, len(cap)) if cap[i]["s"] != cap[i - 1]["s"]]
+    gap = lambda m, b: abs(cap[m]["t"] - cap[b]["t"])
+    owned = {b: [] for b in bounds}   # each mark goes to its nearest speaker change only (a turn the captions left
+    for m in marks:               # unmarked keeps its own place instead of taking the next turn's mark)
+        if bounds:
+            b = min(bounds, key=lambda b: (gap(m, b), b))
+            if gap(m, b) <= 2.0:
+                owned[b].append(m)
+    new = []
+    for n, b in enumerate(bounds):
+        lo = new[-1] + 1 if new else 1
+        hi = bounds[n + 1] - 1 if n + 1 < len(bounds) else len(cap) - 1
+        near = [m for m in owned[b] if lo <= m <= hi]
+        new.append(min(near, key=lambda m: gap(m, b)) if near else max(b, lo))
+    out, side, k = [], cap[0]["s"] if cap else "A", 0
+    for i, c in enumerate(cap):
+        if k < len(new) and i == new[k]:
+            side, k = cap[bounds[k]]["s"], k + 1
+        w = re.sub(r"^(?:>>|&gt;&gt;)\s*", "", c["w"]).strip()
+        if w:
+            out.append(dict(c, w=w, s=side))
+    return out
+
+
 def vtt_words(path):
     """YouTube auto-subs carry a timestamp on every word (<00:01:02.345><c> word</c>)."""
     def ts(s):
@@ -636,10 +667,10 @@ def vtt_words(path):
         line = [l for l in blk.split("\n") if "<c>" in l][0]
         first = re.match(r"([^<]+)<", line)
         if first and first.group(1).strip():
-            words.append((ts(m.group(1)), first.group(1).strip()))
+            words.append((ts(m.group(1)), html.unescape(first.group(1).strip())))
         for t, w in re.findall(r"<(\d\d:\d\d:\d\d\.\d+)><c>\s*([^<]*)</c>", line):
             if w.strip():
-                words.append((ts(t), w.strip()))
+                words.append((ts(t), html.unescape(w.strip())))   # "&gt;&gt;" is the ">>" turn mark
     return words
 
 
@@ -980,7 +1011,8 @@ def main():
         # caption words for this exchange, each tagged with whoever's line it falls in
         span = [(t, w) for t, w in words if ex["start"] - 0.05 <= t <= ex["end"] + 0.05]
         starts = [(l["start"], l["speaker"]) for l in ex["lines"]]
-        cap = [{"t": round(t, 2), "w": w, "s": max([s for s in starts if s[0] <= t + 0.05] or [starts[0]])[1]} for t, w in span]
+        cap = turn_tags([{"t": round(t, 2), "w": w, "s": max([s for s in starts if s[0] <= t + 0.05] or [starts[0]])[1]}
+                         for t, w in span])
         req, verdict = judge(ex)
         if not verdict.get("success"):
             print(f"judge failed {key}", file=sys.stderr); continue
