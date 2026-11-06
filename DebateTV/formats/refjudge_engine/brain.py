@@ -248,6 +248,8 @@ def recut_end(title, channel, ex, why, words):
     near = [(t, w) for t, w in words if ex["start"] - 25 <= t <= ex["end"] + 25]
     got, by = ask(head + rules + (WIRE_NOTE if WIRE else "")
                   + RECUT.format(why=why, pick=json.dumps(pick, indent=1), captions=transcript_text(near)), SCHEMA)
+    if not got.get("debate", {}).get("two_sided"):
+        return None, by
     cut = (got.get("exchanges") or [None])[0]
     return cut, by
 
@@ -733,13 +735,15 @@ def main():
             continue
         try:
             cut, cut_by = recut_end(title, channel, ex, why2, words)
-        except PickerDown as e:
-            print(f"recut {key}: picker down, {e}", file=sys.stderr); continue
+        except Exception as e:   # a failed recut drops only the recut, never the picks already kept
+            print(f"recut {key}: failed, {e}", file=sys.stderr); continue
         if not cut:
             print(f"recut {key}: the picker found no cut that passes every test", file=sys.stderr); continue
         key2 = f"{vid}_{int(cut['start'])}"
-        taken = {k for k, *_ in kept} | {k for k, *_ in recut} | ({k for k, _, _ in stood} - {key})
-        why_not = "already in the ledger" if key2 in ledger or key2 in taken else check(cut, words)
+        others = [e for k, _, e in stood if k != key] + [e for _, _, e in recut]
+        why_not = ("already in the ledger" if key2 in ledger else
+                   "overlaps another pick" if any(cut["start"] < o["end"] and o["start"] < cut["end"] for o in others)
+                   else check(cut, words))
         if why_not:
             print(f"recut {key} -> {key2}: {why_not}", file=sys.stderr); continue
         print(f"recut {key} -> {key2}: {cut['start']:.1f} to {cut['end']:.1f} s, to the second reader again", file=sys.stderr)
@@ -747,8 +751,8 @@ def main():
     if recut:
         try:
             read2, read2_by = second_read(title, channel, [(k, ex) for k, _, ex in recut], words)
-        except PickerDown as e:
-            read2, read2_by = {}, f"picker down, {e}"
+        except Exception as e:   # no fresh read, no recut filed
+            read2, read2_by = {}, f"second read failed, {e}"
         for key, rank, ex in recut:
             verdict2, why2, _ = read2.get(key, ("PULL", "the second reader gave no verdict", []))
             if verdict2 != "KEEP":     # once: a recut that is not a fresh KEEP is dropped, never recut again
