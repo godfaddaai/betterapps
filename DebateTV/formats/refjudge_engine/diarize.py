@@ -12,7 +12,10 @@ The model run happens in ~/.render-farm/diar-venv (python 3.12, sherpa-onnx); th
 import json, os, pathlib, subprocess, sys, time
 
 SSD = pathlib.Path(os.environ.get("DIAR_HOME", "/Volumes/Untitled/ARENA-media"))
-CACHE = SSD / "diar-cache"
+# SSD unplugged (11/6 5 PM): /Volumes is root-only, so mkdir there raised and crashed the brain. The cache is small
+# json (the Air keeps its own audio), so it falls back to the Mac; the Mac route's wav is deleted after each run.
+CACHE = SSD / "diar-cache" if SSD.parent.is_mount() or SSD.exists() else pathlib.Path(
+    os.path.expanduser("~/.render-farm/diar-cache"))
 MODELS = SSD / "diar-models"
 VENV_PY = pathlib.Path(os.path.expanduser(os.environ.get("DIAR_PY", "~/.render-farm/diar-venv/bin/python")))
 THRESHOLD = float(os.environ.get("DIAR_THRESHOLD", "0.6"))   # clustering distance; lower = more speakers
@@ -90,7 +93,12 @@ def _on_mac(vid, out):
 
 def turns(vid, log=None):
     """[(start, end, "S<n>")] sorted, speakers numbered by first appearance. [] when it cannot run."""
-    CACHE.mkdir(parents=True, exist_ok=True)
+    try:
+        CACHE.mkdir(parents=True, exist_ok=True)
+    except OSError as e:   # never a crashed video over the cache: plain captions
+        if log:
+            print(f"diarize {vid}: no cache dir ({e}), plain captions", file=log)
+        return []
     out = CACHE / f"{vid}.json"
     if not out.exists():
         errs = []
