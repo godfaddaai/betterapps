@@ -274,7 +274,9 @@ def caption_recut(ex, words):
     ends = []   # (index of the sentence's last word in after, end time)
     # with the diarizer (11/6, j812), the payoff speaker's voice ending is a turn mark too: the last word before
     # another voice takes over is an end, and the cut never runs into the other voice
-    av = voice_of([(t_last, "")] + after) if SEGS else []
+    # the payoff's own caption word (the voice cache is keyed by (time, word)), else the last word heard by t_last
+    said = [(t, w) for t, w in words if t <= t_last + 0.05]
+    av = voice_of(said[-1:] + after) if SEGS and said else []
     for k, (t, w) in enumerate(after):
         if t > t_last + 9 or w.startswith(">>") or (av and av[k + 1] and av[0] and av[k + 1] != av[0]):
             break

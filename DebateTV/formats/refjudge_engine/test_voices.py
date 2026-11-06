@@ -32,6 +32,21 @@ def test_real_turns_kept():
     assert brain.smooth_voices(words, raw) == raw
 
 
+def test_recut_stops_at_other_voice():
+    # with the voice cache populated (as in production), the end recut never runs the payoff into the other voice
+    words = w((10.0, "God"), (10.4, "made"), (10.8, "us"), (11.2, "all"), (11.6, "of"), (12.0, "us"),
+              (13.0, "no"), (13.3, "he"), (13.6, "did"), (13.9, "not"), (14.2, "at"), (14.5, "all"))
+    brain.SEGS = [(9.5, 12.3, "S1"), (12.9, 15.0, "S2")]
+    try:
+        brain.set_voices(words)
+        ex = {"start": 10.0, "end": 11.0, "lines": [{"speaker": "A", "start": 10.0, "text": "God made us"}]}
+        cuts, why = brain.caption_recut(ex, words)
+        assert cuts, why
+        assert all("no" not in c["lines"][-1]["text"].split() and c["end"] < 13.0 for c in cuts), cuts
+    finally:
+        brain.SEGS = []; brain.VOICE_CACHE.clear()
+
+
 if __name__ == "__main__":
     for name, f in list(globals().items()):
         if name.startswith("test_"):
