@@ -715,6 +715,61 @@ def fetch(url, work):
         return info, transcript_words(info["id"])
 
 
+# Windows (11/6, j1075): one picker call over a whole 18,000 word transcript returned 1.2 exchanges a video (93
+# videos 11/6, 108 exchanges, 4 jobs): the model reads the start and skims the rest. The same prompt, the same tests
+# and the same second reader now run on each WINDOW-word stretch of the captions (OVERLAP words shared, so a moment on
+# a seam is whole in one of them), at most MAX_WINDOWS spread over the video, PICK_THREADS at a time. The video is a
+# debate when most windows say so; exchanges come only from windows that do, best of each window first, and an
+# exchange overlapping a better one is dropped.
+WINDOW, OVERLAP, MAX_WINDOWS, PICK_THREADS = 3000, 250, int(os.environ.get("BRAIN_WINDOWS", 8)), 4
+
+
+def windows(words):
+    """[(t0, t1, words)]: the caption words cut into WINDOW-word stretches, at most MAX_WINDOWS spread evenly."""
+    if len(words) <= WINDOW + OVERLAP:
+        return [words]
+    starts = list(range(0, len(words) - OVERLAP, WINDOW))
+    if len(starts) > MAX_WINDOWS:
+        step = len(starts) / MAX_WINDOWS
+        starts = [starts[int(i * step)] for i in range(MAX_WINDOWS)]
+    return [words[i:i + WINDOW + OVERLAP] for i in starts]
+
+
+def pick_windows(title, channel, words, n, note=""):
+    """The picker on each window -> ({"debate": .., "exchanges": [..]}, by). PickerDown in any window is raised."""
+    import concurrent.futures as cf
+    parts = windows(words)
+    if len(parts) == 1:
+        return ask(PROMPT.format(title=title, channel=channel, n=n, transcript=transcript_text(words)) + note, SCHEMA)
+    per = max(3, min(n, 6))
+    def one(part):
+        try:
+            return ask(PROMPT.format(title=title, channel=channel, n=per, transcript=transcript_text(part)) + note, SCHEMA)
+        except PickerDown:
+            raise
+        except Exception as e:   # one window's bad answer loses that window only
+            print(f"window at {part[0][0]:.0f} s failed: {str(e)[-200:]}", file=sys.stderr)
+            return None
+    with cf.ThreadPoolExecutor(PICK_THREADS) as pool:
+        got = list(pool.map(one, parts))
+    got = [g for g in got if g]
+    if not got:
+        raise RuntimeError("every picker window failed")
+    yes = [g for g, by in got if g["debate"]["two_sided"]]
+    verdict = dict((yes or [g for g, _ in got])[0]["debate"])
+    verdict["two_sided"] = 2 * len(yes) >= len(got)
+    verdict["why"] = f"{len(yes)} of {len(got)} windows two sided. " + verdict["why"]
+    exs, depth = [], max((len(g["exchanges"]) for g in yes), default=0)
+    for r in range(depth):   # rank 1 of every window, then rank 2, ...
+        for g in yes:
+            if r < len(g["exchanges"]):
+                ex = g["exchanges"][r]
+                if not any(ex["start"] < o["end"] and o["start"] < ex["end"] for o in exs):
+                    exs.append(ex)
+    print(f"picker windows: {len(parts)} x {WINDOW} words, {len(exs)} exchanges", file=sys.stderr)
+    return {"debate": verdict, "exchanges": exs}, got[0][1]
+
+
 def transcript_text(words):
     lines, cur, t0 = [], [], None
     for t, w in words:
@@ -867,8 +922,7 @@ def main():
         got, by = json.loads(cache.read_text()), "cached picks"
     else:
         try:
-            got, by = ask(PROMPT.format(title=title, channel=channel, n=a.max, transcript=transcript_text(words))
-                          + (WIRE_NOTE if a.wire else "") + (EDIT_NOTE if a.edit else ""), SCHEMA)
+            got, by = pick_windows(title, channel, words, a.max, (WIRE_NOTE if a.wire else "") + (EDIT_NOTE if a.edit else ""))
         except PickerDown as e:
             sys.exit(f"picker down, {e}")  # the feeder reads "usage limit" here and backs off instead of failing the source
         if a.wire:
