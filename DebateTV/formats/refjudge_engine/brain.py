@@ -1096,7 +1096,7 @@ def main():
     else:
         try:
             global SEGS
-            SEGS = [] if os.environ.get("BRAIN_DIARIZE", "1") == "0" else diarize.turns(vid, sys.stderr)
+            SEGS = [] if os.environ.get("BRAIN_DIARIZE", "0") != "1" else diarize.turns(vid, sys.stderr)
             set_voices(words)
             rapid = diarize.rapid_stretches(SEGS, words, voices=voice_of(words)) if SEGS else []
             print(f"diarizer: {len(SEGS)} segments, {len({s for *_, s in SEGS})} voices, {len(rapid)} rapid stretches",
