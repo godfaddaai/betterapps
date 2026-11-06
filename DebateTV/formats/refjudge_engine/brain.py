@@ -181,7 +181,7 @@ Only return the JSON.
 
 
 def second_read(vid_title, channel, exchanges, words):
-    """An independent second pass over the picks that passed check(): {key: (verdict, why)}. The first two human
+    """An independent second pass over the picks that passed check(): {key: (verdict, why, fails)}. The first two human
     ordered reviews (10/7) kept 6 of 21 and 3 of 10 of what one reader picked, so nothing is filed on one reading."""
     g = lambda a, b: " ".join(w for t, w in words if a <= t < b)
     blocks = []
@@ -276,7 +276,7 @@ def caption_recut(ex, words):
         nxt = after[k + 1][0] if k + 1 < len(after) else None   # None: the video's last word
         if (punct and w[-1:] in ".?!") or (not punct and (nxt is None or nxt - t >= 1.0)):
             # the reader sees the captions to end + 0.3 and the clip plays to the end: the next word stays out of both
-            ends.append((k, t + 0.5 if nxt is None else min(t + 0.5, nxt - 0.35)))
+            ends.append((k, t + 0.5 if nxt is None else max(t + 0.3, min(t + 0.5, nxt - 0.35))))   # never before the word ends
     if not ends:
         return [], "the sentence does not finish within 9 s"
     cuts, why = [], ""
@@ -779,7 +779,8 @@ def main():
         if not cuts:
             print(f"recut {key}: no caption cut, {no_cut}", file=sys.stderr)
             note_recut(key, "no_cut", a.dry_read, no_cut); continue
-        others = [e for k, _, e in stood if k != key] + [e for _, _, e in recut]
+        # only picks that can still be filed block a recut (a pulled or weak neighbour is never filed)
+        others = [e for k, _, e in stood if k != key and read.get(k, ('PULL',))[0] == 'KEEP'] + [e for _, _, e in recut]
         for n, cut in enumerate(cuts):
             key2 = f"{vid}_{int(cut['start'])}" + ("" if n == 0 else f"_{int(cut['end'])}")
             why_not = ("already in the ledger" if f"{vid}_{int(cut['start'])}" in ledger else
@@ -805,7 +806,7 @@ def main():
             print(f"recut {key}: second reader, keep: {why2}", file=sys.stderr)
             note_recut(key, "read_keep", a.dry_read, why2, ex.get("recut_from"))
             ex["recut"] = True
-            kept.append((key, rank, ex, f"{read2_by} (recut end)", why2))
+            kept.append((f"{vid}_{int(ex['start'])}", rank, ex, f"{read2_by} (recut end)", why2))   # filed under the plain key the ledger checks
     if a.dry_read:
         print(json.dumps({"video": {"id": vid, "title": title}, "first_read": {k: list(v) for k, v in read.items()},
                           "kept": [{"key": k, "recut": bool(ex.get("recut")), "start": ex["start"], "end": ex["end"],
