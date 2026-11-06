@@ -16,6 +16,7 @@ arguing opposite sides, or nothing is cut), returns only exchanges where both si
 beside each one the reason a viewer stays. check() then throws out anything the transcript does not back.
   python3 brain.py <url> --dry     # the picks and their reasons, nothing judged, downloaded or filed
 """
+import diarize
 import argparse, datetime, fcntl, html, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.request
 
 HERE = pathlib.Path(__file__).parent
@@ -64,7 +65,7 @@ referee's scorecard. A clip that is not a real two sided argument, or that a str
 so pick few and pick well. Zero picks is a correct answer.
 
 The transcript below is the auto-caption transcript of a video titled "{title}" (channel: {channel}).
-Each line starts with its time in seconds. Captions carry no speaker labels: work out who is speaking from the words.
+Each line starts with its time in seconds.{voices}
 
 STEP 1, rule on the video (the "debate" field). two_sided is true only when two people (or two camps) on camera argue
 opposite sides of a question against each other. It is false for a news broadcast, a lecture or sermon, a friendly
@@ -158,7 +159,8 @@ DebateTV cuts short vertical clips out of long debates. A clip opens with the ti
 plays the whole pick (8 to 19 seconds), then shows an AI referee's scorecard. The owner's rule: "Clips are picked as
 real debates for retention, not scraped at random for volume." A first reader picked the moments below from the video
 "{title}" ({channel}). For each pick you get its title, each side's position, its lines with the speaker the first
-reader assigned, the reason it gave, and the RAW captions (no speaker labels, word times good to half a second) for
+reader assigned, the reason it gave, and the RAW captions (word times good to half a second; [S1], [S2] tags, when
+there, are a speaker diarizer's voices from the audio, a new tag at each change of voice) for
 25 seconds before, during, and 12 seconds after. Judge from the raw captions, never from the first reader's claims.
 
 KEEP only when all of this is true:
@@ -183,7 +185,7 @@ Only return the JSON.
 def second_read(vid_title, channel, exchanges, words, edit=None):
     """An independent second pass over the picks that passed check(): {key: (verdict, why, fails)}. The first two human
     ordered reviews (10/7) kept 6 of 21 and 3 of 10 of what one reader picked, so nothing is filed on one reading."""
-    g = lambda a, b: " ".join(w for t, w in words if a <= t < b)
+    g = lambda a, b: tagged(words, a, b)
     blocks = []
     for key, ex in exchanges:
         blocks.append(f"""## PICK {key} ({ex['end'] - ex['start']:.1f} s)
@@ -270,11 +272,15 @@ def caption_recut(ex, words):
     after = [(t, w) for t, w in words if t > t_last + 0.05]
     punct = any(w[-1:] in ".?!" for t, w in words if t_last - 30 <= t <= t_last + 30)
     ends = []   # (index of the sentence's last word in after, end time)
+    # with the diarizer (11/6, j812), the payoff speaker's voice ending is a turn mark too: the last word before
+    # another voice takes over is an end, and the cut never runs into the other voice
+    av = voice_of([(t_last, "")] + after) if SEGS else []
     for k, (t, w) in enumerate(after):
-        if t > t_last + 9 or w.startswith(">>"):
+        if t > t_last + 9 or w.startswith(">>") or (av and av[k + 1] and av[0] and av[k + 1] != av[0]):
             break
         nxt = after[k + 1][0] if k + 1 < len(after) else None   # None: the video's last word
-        if (punct and w[-1:] in ".?!") or (not punct and (nxt is None or nxt - t >= 1.0)):
+        turn = bool(av) and k + 2 < len(av) and av[k + 2] and av[0] and av[k + 2] != av[0]
+        if (punct and w[-1:] in ".?!") or (not punct and (nxt is None or nxt - t >= 1.0)) or turn:
             # the reader sees the captions to end + 0.3 and the clip plays to the end: the next word stays out of both
             ends.append((k, t + 0.5 if nxt is None else max(t + 0.3, min(t + 0.5, nxt - 0.35))))   # never before the word ends
     if not ends:
@@ -381,7 +387,7 @@ def edit_repick(title, channel, words, weak, avoid, n):
     moment the second reader called WEAK, inside WIDEN s either side of it); none overlap avoid. weak: [(key, ex)]."""
     wins = [(k, max(0.0, ex["start"] - WIDEN), ex["end"] + WIDEN, ex) for k, ex in weak]
     text = "\n...\n".join(transcript_text([(t, w) for t, w in words if a <= t <= b]) for _, a, b, _ in wins)
-    got, by = ask(PROMPT.format(title=title, channel=channel, n=n, transcript=text) + EDIT_NOTE, SCHEMA)
+    got, by = ask(PROMPT.format(title=title, channel=channel, n=n, transcript=text, voices=voices_note()) + EDIT_NOTE, SCHEMA)
     if not got["debate"]["two_sided"]:
         return [], by
     picks = []
@@ -740,11 +746,13 @@ def pick_windows(title, channel, words, n, note=""):
     import concurrent.futures as cf
     parts = windows(words)
     if len(parts) == 1:
-        return ask(PROMPT.format(title=title, channel=channel, n=n, transcript=transcript_text(words)) + note, SCHEMA)
+        return ask(PROMPT.format(title=title, channel=channel, n=n, transcript=transcript_text(words), voices=voices_note())
+                   + rapid_note(words) + note, SCHEMA)
     per = max(3, min(n, 6))
     def one(part):
         try:
-            return ask(PROMPT.format(title=title, channel=channel, n=per, transcript=transcript_text(part)) + note, SCHEMA)
+            return ask(PROMPT.format(title=title, channel=channel, n=per, transcript=transcript_text(part),
+                                     voices=voices_note()) + rapid_note(part) + note, SCHEMA)
         except PickerDown:
             raise
         except Exception as e:   # one window's bad answer loses that window only
@@ -770,17 +778,82 @@ def pick_windows(title, channel, words, n, note=""):
     return {"debate": verdict, "exchanges": exs}, got[0][1]
 
 
+def voice_of(words):
+    """Each caption word's voice from the diarizer ("" without one): bisect on the segment starts."""
+    if not SEGS:
+        return [""] * len(words)
+    import bisect
+    starts = [a for a, _, _ in SEGS]
+    out = []
+    for t, _ in words:
+        i = bisect.bisect_right(starts, t) - 1
+        best, gap = "", 1.5
+        for k in (i, i + 1):
+            if 0 <= k < len(SEGS):
+                a, b, sp = SEGS[k]
+                d = 0 if a <= t <= b else min(abs(t - a), abs(t - b))
+                if d < gap:
+                    best, gap = sp, d
+        out.append(best)
+    # a one word blip of another voice inside a run is crosstalk or a diarizer slip: it keeps its neighbours' voice
+    for k in range(1, len(out) - 1):
+        if out[k] != out[k - 1] and out[k - 1] == out[k + 1]:
+            out[k] = out[k - 1]
+    return out
+
+
+def voices_note():
+    return VOICES if SEGS else NO_VOICES
+
+
+def rapid_note(part):
+    """The diarizer's fast stretches inside this window, as a reading hint (empty without the diarizer)."""
+    if not SEGS or not part:
+        return ""
+    rapid = [r for r in diarize.rapid_stretches(SEGS, part)]
+    return RAPID.format(stretches="\n".join(f"{x:.1f} to {y:.1f} s: {c} changes of voice" for x, y, c in rapid)) if rapid else ""
+
+
 def transcript_text(words):
-    lines, cur, t0 = [], [], None
-    for t, w in words:
+    """Caption lines; with the diarizer, a new line at every change of voice, tagged with the voice (S1, S2 ...)."""
+    lines, cur, t0, v0 = [], [], None, ""
+    for (t, w), v in zip(words, voice_of(words)):
+        if cur and SEGS and v and v != v0:
+            lines.append(f"{t0:.1f} [{v0}] {' '.join(cur)}"); cur, t0 = [], None
         if t0 is None:
-            t0 = t
+            t0, v0 = t, v or v0
         cur.append(w)
         if t - t0 > 8 and w[-1:] in ".?!" or t - t0 > 14:
-            lines.append(f"{t0:.1f} {' '.join(cur)}"); cur, t0 = [], None
+            lines.append(f"{t0:.1f} " + (f"[{v0}] " if SEGS else "") + " ".join(cur)); cur, t0 = [], None
     if cur:
-        lines.append(f"{t0:.1f} {' '.join(cur)}")
+        lines.append(f"{t0:.1f} " + (f"[{v0}] " if SEGS else "") + " ".join(cur))
     return "\n".join(lines)
+
+
+def tagged(words, a, b):
+    """The raw caption words from a to b, with the diarizer's voice tag at each change of voice."""
+    out, last = [], None
+    for (t, w), v in zip(words, voice_of(words)):
+        if a <= t < b:
+            if SEGS and v and v != last:
+                out.append(f"[{v}]"); last = v
+            out.append(w)
+    return " ".join(out)
+
+
+SEGS = []   # the diarizer's [(start, end, "S1")] for the video being picked; [] = plain captions
+VOICES = """ After the time, [S1], [S2] ... is the voice speaking, from a speaker diarizer run on the audio:
+a new line starts every time the voice changes. Trust the tags for who speaks when (they can slip for a word or two at
+crosstalk, and one person can rarely get two tags); A and B in your answer are people, not tags. A pick needs the tags
+to change at least three times inside it (A, B, A, B): a clash, not a question and a speech."""
+NO_VOICES = " Captions carry no speaker labels: work out who is speaking from the words."
+RAPID = """
+
+RAPID STRETCHES. The diarizer found these windows of 19 s or less where the voice changes three or more times between
+two people who each say six words or more. They are where short clashes live: read each one (and the lines around it)
+first, and pick from them when one passes every test. A stretch is a hint, not a pick; its edges are not your start and
+end.
+{stretches}"""
 
 
 def norm(w):
@@ -922,6 +995,11 @@ def main():
         got, by = json.loads(cache.read_text()), "cached picks"
     else:
         try:
+            global SEGS
+            SEGS = [] if os.environ.get("BRAIN_DIARIZE", "1") == "0" else diarize.turns(vid, sys.stderr)
+            rapid = diarize.rapid_stretches(SEGS, words) if SEGS else []
+            print(f"diarizer: {len(SEGS)} segments, {len({s for *_, s in SEGS})} voices, {len(rapid)} rapid stretches",
+                  file=sys.stderr)
             got, by = pick_windows(title, channel, words, a.max, (WIRE_NOTE if a.wire else "") + (EDIT_NOTE if a.edit else ""))
         except PickerDown as e:
             sys.exit(f"picker down, {e}")  # the feeder reads "usage limit" here and backs off instead of failing the source
