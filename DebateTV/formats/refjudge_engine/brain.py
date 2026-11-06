@@ -820,8 +820,8 @@ def smooth_voices(words, out, min_words=3, min_secs=1.0, reach=1.5):
         rs = runs()
         for n, (v, a, b) in enumerate(rs):
             short = b - a + 1 < min_words or words[b][0] - words[a][0] < min_secs
-            if short and len(rs) > 1:
-                fill = rs[n - 1][0] if n else rs[n + 1][0]
+            if short and 0 < n < len(rs) - 1:   # an edge run may be a turn cut by the window: it stays
+                fill = rs[n - 1][0]
                 for k in range(a, b + 1):
                     out[k] = fill
                 changed = True
