@@ -906,9 +906,9 @@ def tagged(words, a, b):
 
 SEGS = []   # the diarizer's [(start, end, "S1")] for the video being picked; [] = plain captions
 VOICES = """ After the time, [S1], [S2] ... is the voice speaking, from a speaker diarizer run on the audio:
-a new line starts every time the voice changes. Trust the tags for who speaks when (they can slip for a word or two at
-crosstalk, and one person can rarely get two tags); A and B in your answer are people, not tags. A pick needs the tags
-to change at least three times inside it (A, B, A, B): a clash, not a question and a speech."""
+a new line starts when the voice changes. Use the tags as a hint for who speaks when, never as proof: they miss turns
+at crosstalk, can give one person two tags, and can merge two people who sound alike. When the words show a turn the
+tags missed, trust the words. A and B in your answer are people, not tags."""
 NO_VOICES = " Captions carry no speaker labels: work out who is speaking from the words."
 RAPID = """
 
