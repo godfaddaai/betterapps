@@ -31,10 +31,12 @@ assert not B.crowd_wins(ex("Liberal", "Conservative"), V(1, 1), "1 Liberal vs 25
 cap = lambda *runs: [{"t": t, "w": "w", "s": s} for s, a, b in runs for t in [a + 0.4 * k for k in range(int((b - a) / 0.4) + 1)]]
 burst = cap(("A", 0, 1.2), ("B", 1.5, 6), ("A", 6.3, 8.1), ("B", 8.4, 20))
 assert B.open_run(burst, "A") < B.OPEN_RUN <= B.open_run(burst, "B")
-assert B.open_run(cap(("A", 0, 2.8)), "A") >= B.OPEN_RUN                     # 2.8 s of word starts + the last word
+assert B.open_run(cap(("A", 0, 2.0)), "A") >= B.OPEN_RUN                     # 2 s of word starts + the last word
+assert B.open_run([{"t": 0, "s": "A"}, {"t": 1, "s": "A"}, {"t": 2.3, "s": "A"}, {"t": 2.9, "s": "B"}], "A") >= B.OPEN_RUN
 assert B.focus_of(V(60, 45), burst) == "A" and B.focus_of(V(36, 62), burst) == "B"
 assert B.focus_of(V(50, 50), burst) == "B"                                     # a tie: the side that talks more
 assert B.same_person("Andrew Wilson", "Wilson") and not B.same_person("Nick Fuentes", "Dean Withers")
+assert not B.same_person("Man 1", "Man 2") and not B.same_person("", "") and B.same_person("Christian", "christian")
 assert B.NO_OPEN in "the source's own text is on screen (after 1 rounds of picking around it: no line of the edited debater fits the open)"
 
 # the gate log: refused and crowd block a rerun, a host failure does not

@@ -412,7 +412,7 @@ def edit_repick(title, channel, words, weak, avoid, n):
 # sentence of theirs of 3 to 6 s alone. The new pick faces check(), the second reader, REF (still that side) and
 # beatedit spec again, all unchanged. Off with BRAIN_OPEN_REPICK=0.
 OPEN_REPICK = os.environ.get("BRAIN_OPEN_REPICK", "1") != "0"
-OPEN_RUN = 3.0
+OPEN_RUN = 2.6   # caption starts run short of beatedit's aligned words + 0.12 s lead in: a margin, never a new bar
 NO_OPEN = "no line of the edited debater fits the open"
 OPEN_NOTE = """
 
@@ -421,7 +421,8 @@ OPEN REPICK. One exchange was picked from {s0:.1f} to {s1:.1f} s, matchup "{matc
 seconds from first word to last, no one else talking inside it. That pick has none ({why}). Return at most ONE exchange
 from this transcript: the same clash (it overlaps {s0:.1f} to {s1:.1f} s), widened or shifted, 20 to 60 seconds, in
 which {name} says such a sentence, a claim, a comeback or a number that lands on its own for a stranger. Keep {name}
-as side {letter} and put that sentence's hardest 2 to 6 words in kill_phrase. Every other test holds as written. When
+as side {letter} and put that sentence's hardest 2 to 6 words in kill_phrase: this sentence is {name}'s, whoever is
+better known (it replaces that rule above). Every other test holds as written. When
 {name} never talks 3 seconds alone anywhere near this clash, return no exchanges."""
 
 
@@ -448,9 +449,15 @@ def open_run(cap, side):
     return round(best, 2)
 
 
+GENERIC = {"man", "woman", "guy", "girl", "speaker", "person", "panelist", "caller", "guest", "host", "student", "the"}
+
+
 def same_person(a, b):
-    na, nb = {norm(w) for w in (a or "").split() if len(norm(w)) > 2}, {norm(w) for w in (b or "").split() if len(norm(w)) > 2}
-    return bool(na & nb) or norm(a or "") == norm(b or "")
+    """Two labels name one person: a shared name word ("Andrew Wilson", "Wilson"), never only "man" or "speaker"."""
+    tok = lambda x: {norm(w) for w in (x or "").split() if len(norm(w)) > 2 and norm(w) not in GENERIC}
+    if tok(a) or tok(b):
+        return bool(tok(a) & tok(b))
+    return bool(norm(a or "")) and norm(a or "") == norm(b or "")
 
 
 def open_repick(title, channel, words, ex, side, why, avoid):
@@ -1420,7 +1427,7 @@ def main():
             print(f"edit repick failed: {str(e)[-200:]}", file=sys.stderr)
         print(f"edit repick {eby}: {len(picks)} 20 to 60 s picks around {len(weak)} weak "
               f"({', '.join(k for k, _, _ in weak)})", file=sys.stderr)
-        stood_e, refused = [], {k: v for k, v in gated().items() if v in ("refused", "crowd")}
+        stood_e, refused = [], {k: v for k, v in gated().items() if v in ("refused", "crowd", "precheck")}
         for ex, src in picks:
             ex["edit_from"] = src
             key = f"{vid}_{int(ex['start'])}"
@@ -1468,8 +1475,10 @@ def main():
         if e2 is None:
             print(f"open repick {key}: none, {by2}", file=sys.stderr); return
         k2 = f"{vid}_{int(e2['start'])}"
-        if k2 in ledger or any(k == k2 for k, *_ in kept):
-            print(f"open repick {key}: {k2} already in the ledger or kept", file=sys.stderr); return
+        if k2 == key or any(k == k2 for k, *_ in kept):   # widened at the end only: the start key is taken
+            k2 = f"{vid}_{int(e2['start'])}_{int(e2['end'])}"
+        if k2 in ledger or any(k == k2 for k, *_ in kept) or gated().get(k2) in ("refused", "crowd", "precheck"):
+            print(f"open repick {key}: {k2} already in the ledger, kept or refused", file=sys.stderr); return
         try:
             r3, r3_by = second_read(title, channel, [(k2, e2)], words, edit=True)
         except Exception as e:
@@ -1506,12 +1515,17 @@ def main():
         if edit and BEATEDIT_GATE and crowd_wins(ex, verdict, title, channel):   # a391: the crowd side is never on
             print(f"skip edit {key}: 1 vs N show and REF favours the crowd side, beatedit finds no open", file=sys.stderr)
             note_gate(key, "crowd"); continue                                    # camera for a whole line
-        side = focus_of(verdict, cap)
+        try:
+            side = focus_of(verdict, cap) if edit else None
+        except (KeyError, TypeError):
+            side = None
+        if edit and ex.get("open_from") and side is None:
+            print(f"skip edit {key}: REF gave no side scores", file=sys.stderr); continue
         if edit and ex.get("open_from") and not same_person(ex["a_name"] if side == "A" else ex["b_name"], ex["open_side"]):
             print(f"skip edit {key}: REF now favours the other side, not {ex['open_side']}", file=sys.stderr); continue
-        if edit and BEATEDIT_GATE and open_run(cap, side) < OPEN_RUN:   # j1217: no Air run on a pick with no open
-            why = f"{NO_OPEN} (pre-check: REF's side talks {open_run(cap, side):.1f} s alone at most)"
-            note_gate(key, "refused", why)
+        if edit and BEATEDIT_GATE and OPEN_REPICK and side and open_run(cap, side) < OPEN_RUN:   # j1217: no Air
+            why = f"{NO_OPEN} (pre-check: REF's side talks {open_run(cap, side):.1f} s alone at most)"   # run spent
+            note_gate(key, "precheck", why)
             print(f"skip edit {key}: {why}", file=sys.stderr)
             repick_open(key, ex, side, f"{ex['a_name'] if side == 'A' else ex['b_name']} talks {open_run(cap, side):.1f} s alone at most")
             continue
@@ -1541,7 +1555,8 @@ def main():
                 shutil.rmtree(d, ignore_errors=True)
                 if outcome == "refused":
                     drop_cache(key)
-                    if NO_OPEN in why:   # the line was there but beatedit cut none (cuts inside words, off camera)
+                    if NO_OPEN in why and side and not why.startswith("the source's own text"):   # a new window
+                        # cannot clear burned-in text; here the lines were there but beatedit cut none
                         repick_open(key, ex, side, "every line of theirs here is under 3 s, ends mid thought, or has a "
                                                    "camera cut inside a word")
                 continue
