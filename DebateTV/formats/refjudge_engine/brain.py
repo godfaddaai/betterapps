@@ -1287,6 +1287,8 @@ def main():
             print(f"end on kill {key}: {cut['end'] - cut['start']:.0f} s, {'stands' if not again else again}", file=sys.stderr)
             if not again:
                 ex.clear(); ex.update(cut); why_not = ""
+        if why_not == KILL_MISS:   # what the picker named against what it ended on, so the next fix reads the logs
+            why_not += f' (kill "{ex.get("kill_phrase", "")}", last line "{ex["lines"][-1]["text"][-80:]}")'
         if why_not:
             print(f"skip {key}: {why_not}", file=sys.stderr); continue
         stood.append((key, rank, ex))
