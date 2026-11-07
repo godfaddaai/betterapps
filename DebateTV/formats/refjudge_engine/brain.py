@@ -406,8 +406,8 @@ def edit_repick(title, channel, words, weak, avoid, n):
 # one whole 3 to 6.3 s sentence they say alone. The edit picker aims its 3 to 6 s sentence at "the better known person"
 # before REF has scored, so on 0e2wThS_5oU_3558 and Z8nSnsmidQU_7684/_6848 the kill phrase sat on the side REF scored
 # lower, and on b75GNVh4ABo_865 Andrew Wilson (REF's side) spoke only in bursts of 3.1 s and less: "no line of the
-# edited debater fits the open", 10 of 24 gate refusals on 11/6. So once REF has scored a pick: when REF's side never
-# talks OPEN_RUN s alone in it (pre-check, no Air run spent), or beatedit spec refuses its open, the picker is asked
+# edited debater fits the open", 10 of 24 gate refusals on 11/6. So when beatedit spec refuses an edit pick's open
+# (open_run, OPEN_RUN: tests only; no pre-check refuses a pick before beatedit has read it), the picker is asked
 # once more with that side named, for the same clash widened or shifted (WIDEN s either side, 20 to 60 s) to hold one
 # sentence of theirs of 3 to 6 s alone. The new pick faces check(), the second reader, REF (still that side) and
 # beatedit spec again, all unchanged. Off with BRAIN_OPEN_REPICK=0.
@@ -1429,7 +1429,7 @@ def main():
             print(f"edit repick failed: {str(e)[-200:]}", file=sys.stderr)
         print(f"edit repick {eby}: {len(picks)} 20 to 60 s picks around {len(weak)} weak "
               f"({', '.join(k for k, _, _ in weak)})", file=sys.stderr)
-        stood_e, refused = [], {k: v for k, v in gated().items() if v in ("refused", "crowd", "precheck")}
+        stood_e, refused = [], {k: v for k, v in gated().items() if v in ("refused", "crowd")}
         for ex, src in picks:
             ex["edit_from"] = src
             key = f"{vid}_{int(ex['start'])}"
@@ -1479,7 +1479,7 @@ def main():
         k2 = f"{vid}_{int(e2['start'])}"
         if k2 == key or any(k == k2 for k, *_ in kept):   # widened at the end only: the start key is taken
             k2 = f"{vid}_{int(e2['start'])}_{int(e2['end'])}"
-        if k2 in ledger or any(k == k2 for k, *_ in kept) or gated().get(k2) in ("refused", "crowd", "precheck"):
+        if k2 in ledger or any(k == k2 for k, *_ in kept) or gated().get(k2) in ("refused", "crowd"):
             print(f"open repick {key}: {k2} already in the ledger, kept or refused", file=sys.stderr); return
         try:
             r3, r3_by = second_read(title, channel, [(k2, e2)], words, edit=True)
@@ -1525,12 +1525,6 @@ def main():
             print(f"skip edit {key}: REF gave no side scores", file=sys.stderr); continue
         if edit and ex.get("open_from") and not same_person(ex["a_name"] if side == "A" else ex["b_name"], ex["open_side"]):
             print(f"skip edit {key}: REF now favours the other side, not {ex['open_side']}", file=sys.stderr); continue
-        if edit and BEATEDIT_GATE and OPEN_REPICK and side and open_run(cap, side) < OPEN_RUN:   # j1217: no Air
-            why = f"{NO_OPEN} (pre-check: REF's side talks {open_run(cap, side):.1f} s alone at most)"   # run spent
-            note_gate(key, "precheck", why)
-            print(f"skip edit {key}: {why}", file=sys.stderr)
-            repick_open(key, ex, side, f"{ex['a_name'] if side == 'A' else ex['b_name']} talks {open_run(cap, side):.1f} s alone at most")
-            continue
         d = JOBS / key
         d.mkdir(parents=True, exist_ok=True)
         t0 = max(0, ex["start"] - PAD)
@@ -1557,8 +1551,8 @@ def main():
                 shutil.rmtree(d, ignore_errors=True)
                 if outcome == "refused":
                     drop_cache(key)
-                    if NO_OPEN in why and side and not why.startswith("the source's own text"):   # a new window
-                        # cannot clear burned-in text; here the lines were there but beatedit cut none
+                    if NO_OPEN in why and side:   # the lines were there but beatedit cut none, or burned-in text
+                        # covered them (a shifted window can fall on a stretch with none: Z8nSnsmidQU_7684)
                         repick_open(key, ex, side, "every line of theirs here is under 3 s, ends mid thought, or has a "
                                                    "camera cut inside a word")
                 continue
