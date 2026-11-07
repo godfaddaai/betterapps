@@ -602,6 +602,42 @@ def beatedit_spec(key, job, src):
         shutil.rmtree(sd, ignore_errors=True)
 
 
+# Short on beats, open found (11/7, j1362): "only N distinct moments of the edited debater fit a beat, 15 needed" is
+# the gate's biggest refusal (34 of 11/6-11/7, in same-video runs: Cq9boZ4au8o x3, blNvE504OLQ x3, CcySYtrQGVg x3).
+# render-farm/beatedit_feed.py pairs such a job with the same person's other edit jobs (BEATEDIT_BEATS_WITH: this
+# job keeps its open and its share of the beats, each partner's share passes the same face, shot, motion and text
+# bars), and pairing kept 0e2wThS_5oU_502/_6786, Z8nSnsmidQU_1392 and 3Xv_ZjIEKXk_741/_217/_496 on 11/6. But a job
+# the gate refuses is never filed, so the feed never sees it. So one with N >= SHORT_MIN moments of a full-named
+# person (a partner pool beatedit_feed accepts: no role, at most 3 partners) is filed as "short"; the feed renders it,
+# beatedit refuses it alone in seconds off the cached cut, and the pair retry carries it. Nothing is lowered: the
+# kept piece still passes every beatedit gate. Off with BRAIN_SHORT_PAIRS=0.
+SHORT = re.compile(r"only (\d+) distinct moments of the edited debater fit a beat, (\d+) needed")
+SHORT_MIN = 4          # beatedit_feed.partners: ceil(15 / N) - 1 partners, at most 3
+SHORT_PAIRS = os.environ.get("BRAIN_SHORT_PAIRS", "1") != "0"
+ROLE_NAME = re.compile(r"\b(panelist|caller|guest|host|student|audience|crowd|man|woman|guy|girl|member|speaker|"
+                       r"challenger|christian|muslim|atheist|liberal|conservative|participant|person)s?\b", re.I)
+
+
+# REOPEN (11/7, j1362): the gate's open repick (j1217) only reaches picks the gate itself refuses. A job filed before
+# the gate, or one beatedit refuses at render (beatedit_feed.json: b75GNVh4ABo_865/_1209 and 0e2wThS_5oU_3558 11/6,
+# "no line of the edited debater fits the open"), was never repicked. brain.py URL --reopen KEY runs the same open
+# repick on it: the clash widened or shifted so REF's side says one line alone, read again, gated, filed new.
+
+
+def short_lend(why, name):
+    """True when a beatedit refusal is only too few beat moments and the feed can pair it (see SHORT above)."""
+    m = SHORT.search(why or "")
+    name = (name or "").strip()
+    return bool(SHORT_PAIRS and m and int(m.group(1)) >= SHORT_MIN and full_name(name))
+
+
+def full_name(name):
+    """A person's own name ("Andrew Wilson", "Christian Wagner"): two words or more, each capitalized, one at least
+    no role word. "a panelist", "Christian conservative", "Harris voter", "the moderator" are roles."""
+    ws = (name or "").split()
+    return len(ws) >= 2 and all(w[:1].isupper() for w in ws) and any(not ROLE_NAME.fullmatch(w) for w in ws)
+
+
 def drop_cache(key):
     for d in beatedit_dirs()[2].glob(f"clip_{key}_*"):
         shutil.rmtree(d, ignore_errors=True)
@@ -1302,6 +1338,8 @@ def main():
     ap.add_argument("--max", type=int, default=12)
     ap.add_argument("--wire", action="store_true", help="breaking news picks for 68_wirepost (see WIRE_NOTE)")
     ap.add_argument("--edit", action="store_true", help="20 to 60 s picks for 64_beatedit's fan edit (see EDIT_NOTE)")
+    ap.add_argument("--reopen", default="", help="KEY[,KEY]: filed edit jobs of this video that beatedit refused at render "
+                    "for no open line; each gets one open repick (the same clash widened or shifted, see REOPEN)")
     ap.add_argument("--dry", action="store_true", help="print the picks and their reasons; judge, download and file nothing")
     ap.add_argument("--dry-read", action="store_true", help="--dry plus check(), the second reader and the end recut")
     a = ap.parse_args()
@@ -1322,14 +1360,17 @@ def main():
             rapid = diarize.rapid_stretches(SEGS, words, voices=voice_of(words)) if SEGS else []
             print(f"diarizer: {len(SEGS)} segments, {len({s for *_, s in SEGS})} voices, {len(rapid)} rapid stretches",
                   file=sys.stderr)
-            got, by = pick_windows(title, channel, words, a.max, (WIRE_NOTE if a.wire else "") + (EDIT_NOTE if a.edit else ""))
+            if a.reopen:   # REOPEN: no new picks, only the open repick of the named jobs below
+                got, by = {"debate": {"two_sided": True, "why": "reopen of filed edit jobs"}, "exchanges": []}, "reopen"
+            else:
+                got, by = pick_windows(title, channel, words, a.max, (WIRE_NOTE if a.wire else "") + (EDIT_NOTE if a.edit else ""))
         except PickerDown as e:
             sys.exit(f"picker down, {e}")  # the feeder reads "usage limit" here and backs off instead of failing the source
         if a.wire:
             cache.parent.mkdir(exist_ok=True)
             cache.write_text(json.dumps(got, indent=1))
     global WIRE, EDIT
-    WIRE, EDIT = a.wire, a.edit
+    WIRE, EDIT = a.wire, a.edit or bool(a.reopen)
     if SEGS and got["debate"]["two_sided"] and not (a.wire or a.edit):
         got["exchanges"] += stretch_pass(title, channel, words, got["exchanges"])
     verdict_on_video, exchanges = got["debate"], got["exchanges"]
@@ -1494,6 +1535,23 @@ def main():
               file=sys.stderr)
         kept.append((k2, rank, e2, f"{by2} (open repick of {key})", w3))   # the loop below reaches it in turn
 
+    rank = 0   # repick_open files at this rank (it reads the loop variable below)
+    for key in [k for k in a.reopen.split(",") if k]:   # REOPEN
+        jf = JOBS / key / "job.json"
+        if not key.startswith(vid + "_") or not jf.exists():
+            print(f"reopen {key}: no filed job of {vid}", file=sys.stderr); continue
+        old = json.loads(jf.read_text())
+        ex = {k: v for k, v in old.items() if k not in ("key", "mode", "source", "picker", "words", "judge_request",
+                                                          "judge_response", "open_from", "open_side")}
+        ex.setdefault("picked_at", (old["start"], old["end"]))
+        try:
+            side = focus_of(old["judge_response"], old.get("words") or [])
+        except (KeyError, TypeError):
+            print(f"reopen {key}: REF gave no side scores", file=sys.stderr); continue
+        print(f"reopen {key}: beatedit found no open line of {ex['a_name'] if side == 'A' else ex['b_name']} in "
+              f"{old['start']:.0f} to {old['end']:.0f} s; one open repick", file=sys.stderr)
+        repick_open(key, ex, side, "beatedit found no 3 to 6.3 s line of theirs alone here with no camera cut inside a word")
+
     for ex in (k[2] for k in kept):
         ex["picked_at"] = (ex["start"], ex["end"])   # the window as picked, before the snap below moves it
     for key, rank, ex, read_by, why2 in kept:
@@ -1544,8 +1602,12 @@ def main():
                "words": cap, "judge_request": req, "judge_response": verdict}
         if edit and BEATEDIT_GATE:   # a391: file an edit job only once beatedit has cut the window and found its open
             outcome, why = beatedit_spec(key, job, d / "src.mp4")
+            if outcome == "refused" and short_lend(why, ex.get("a_name" if side == "A" else "b_name") if side else ""):
+                outcome = "short"            # filed for beatedit_feed's pair retry; the cut stays cached for it
             note_gate(key, outcome, why + (f" (open repick of {ex['open_from']})" if ex.get("open_from") else ""))
-            if outcome != "pass":
+            if outcome == "short":
+                print(f"beatedit spec {key}: short, filed for a pair retry: {why}", file=sys.stderr)
+            elif outcome != "pass":
                 print(f"skip edit {key}: beatedit spec {'refused' if outcome == 'refused' else 'did not run'}: {why}",
                       file=sys.stderr)
                 shutil.rmtree(d, ignore_errors=True)
@@ -1556,7 +1618,8 @@ def main():
                         repick_open(key, ex, side, "every line of theirs here is under 3 s, ends mid thought, or has a "
                                                    "camera cut inside a word")
                 continue
-            print(f"beatedit spec {key}: pass, {why}", file=sys.stderr)
+            if outcome == "pass":
+                print(f"beatedit spec {key}: pass, {why}", file=sys.stderr)
         (d / "job.json").write_text(json.dumps(job, indent=1))
         if ex.get("recut_from"):
             note_recut(key, "filed", False, "[recut]" if ex.get("recut") else "[renamed]", ex.get("recut_from"))
