@@ -759,6 +759,24 @@ def end_on_kill(ex):
     return None
 
 
+def kill_recut(ex, words, key):
+    """end_on_kill, snapped and checked again. The snapped end never passes the start of the line that was cut away
+    (a word the tail repeats could pull it there). The cut is flagged kill_cut: its retention and hook still
+    describe the longer pick, which the second reader's verdict line then says. -> True when the cut stands (ex is
+    replaced by it), else False (ex unchanged)."""
+    cut = end_on_kill(ex)
+    if cut is None:
+        return False
+    cut["end"] = min(snap_end(words, cut), cut["end"])
+    cut["kill_cut"] = True
+    again = check(cut, words)
+    print(f"end on kill {key}: {cut['end'] - cut['start']:.0f} s, {'stands' if not again else again}", file=sys.stderr)
+    if again:
+        return False
+    ex.clear(); ex.update(cut)
+    return True
+
+
 def snap_end(words, ex):
     """End on the last word of the last line as the captions time it, not on the picker's rounded guess (the review
     found stray words of the next sentence after 9 of 21 payoffs)."""
@@ -1271,8 +1289,10 @@ def main():
     if not verdict_on_video["two_sided"]:
         exchanges = []
     if a.dry:
-        for ex in exchanges:
+        for ex in exchanges:   # the same end-on-kill recut as a real run, so dry counts match it
             ex["thrown_out"] = check(ex, words)
+            if ex["thrown_out"] == KILL_MISS and kill_recut(ex, words, f"{vid}_{int(ex['start'])}"):
+                ex["thrown_out"] = ""
         print(json.dumps({"video": {"id": vid, "title": title, "channel": channel}, "picker": by, "debate": verdict_on_video,
                           "exchanges": exchanges}, indent=1))
         return
@@ -1281,12 +1301,8 @@ def main():
     for rank, ex in enumerate(exchanges, 1):  # the picker returns its best first
         key = f"{vid}_{int(ex['start'])}"
         why_not = "already in the ledger" if key in ledger else check(ex, words)
-        if why_not == KILL_MISS and (cut := end_on_kill(ex)) is not None:
-            cut["end"] = snap_end(words, cut)
-            again = check(cut, words)
-            print(f"end on kill {key}: {cut['end'] - cut['start']:.0f} s, {'stands' if not again else again}", file=sys.stderr)
-            if not again:
-                ex.clear(); ex.update(cut); why_not = ""
+        if why_not == KILL_MISS and kill_recut(ex, words, key):
+            why_not = ""
         if why_not == KILL_MISS:   # what the picker named against what it ended on, so the next fix reads the logs
             why_not += f' (kill "{ex.get("kill_phrase", "")}", last line "{ex["lines"][-1]["text"][-80:]}")'
         if why_not:
@@ -1312,7 +1328,8 @@ def main():
         if verdict2 == "KEEP" or (EDIT and verdict2 == "WEAK"):   # WEAK fails only the clip's hook and window
             # rules (3 to 5); beatedit picks its own open sentence and gates it, so an edit pick stops only on PULL
             kept.append((key, rank, ex, read_by, why2)); continue
-        print(f"skip {key}: second reader, {verdict2.lower()}: {why2}", file=sys.stderr)
+        print(f"skip {key}: second reader, {verdict2.lower()}: {why2}"
+              + (" (kill cut: retention and hook are the picker's for the longer pick)" if ex.get("kill_cut") else ""), file=sys.stderr)
         if EDIT or verdict2 != "WEAK":
             continue
         weak.append((key, rank, ex))   # a366: a WEAK pick nothing below saves goes to the beat edit

@@ -21,3 +21,15 @@ def test_no_cut_when_phrase_absent_or_last():
     assert brain.end_on_kill(e) is None
     e["kill_phrase"] = "never said"
     assert brain.end_on_kill(e) is None
+
+
+def test_kill_recut_end_never_passes_the_dropped_line(monkeypatch):
+    e = ex()
+    cut = brain.end_on_kill(e)
+    limit = cut["end"]
+    # a word the dropped tail repeats sits after the limit: the snapped end must not follow it there
+    last = [w for w in cut["lines"][-1]["text"].split()][-1]
+    words = [(limit + 1.0, last)]
+    monkeypatch.setattr(brain, "check", lambda c, w, edit=None: "")
+    assert brain.kill_recut(e, words, "k")
+    assert e["end"] <= limit and e["kill_cut"]
