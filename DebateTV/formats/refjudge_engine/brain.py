@@ -476,6 +476,8 @@ def open_repick(title, channel, words, ex, side, why, avoid):
             continue   # outside the widened window, or no longer the same clash
         if any(e["start"] < o["end"] and o["start"] < e["end"] for o in avoid):
             continue
+        if abs(e["start"] - s0) < 1 and abs(e["end"] - s1) < 1:
+            continue   # the same window again: beatedit would refuse it again (Z8nSnsmidQU_6848)
         if not same_person(e["a_name"] if side == "A" else e["b_name"], name):
             continue   # the sides came back swapped: REF's side is not the one asked for
         bad = check(e, words, edit=True)
