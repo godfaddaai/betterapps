@@ -45,6 +45,14 @@ with tempfile.TemporaryDirectory() as t:
     B.note_gate("a_1", "refused", "no line"); B.note_gate("b_2", "host", "timeout"); B.note_gate("c_3", "crowd")
     assert B.gated() == {"a_1": "refused", "b_2": "host", "c_3": "crowd"}
 
+# j1362: a pick only short on beats is filed for beatedit_feed's pair retry (a full name, N >= 4)
+W = "only 11 distinct moments of the edited debater fit a beat, 15 needed"
+assert B.short_lend(W, "Daniel Haqiqatjou") and B.short_lend(W.replace("11", "4"), "Andrew Wilson")
+assert not B.short_lend(W.replace("11", "3"), "Andrew Wilson")              # 3 moments: 4 partners, over the feed's 3
+assert not B.short_lend(W, "a panelist") and not B.short_lend(W, "Wilson")   # a role, a single word: no partner pool
+assert not B.short_lend("no line of the edited debater fits the open", "Andrew Wilson")
+assert not B.short_lend("the source's own text is on screen wherever this debater talks", "Andrew Wilson")
+
 # beatedit_spec with no beatedit: host, nothing staged
 B.BEATEDIT = pathlib.Path("/nonexistent/beatedit.py")
 assert B.beatedit_spec("x_1", {}, "/dev/null")[0] == "host"

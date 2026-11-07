@@ -602,6 +602,29 @@ def beatedit_spec(key, job, src):
         shutil.rmtree(sd, ignore_errors=True)
 
 
+# Short on beats, open found (11/7, j1362): "only N distinct moments of the edited debater fit a beat, 15 needed" is
+# the gate's biggest refusal (34 of 11/6-11/7, in same-video runs: Cq9boZ4au8o x3, blNvE504OLQ x3, CcySYtrQGVg x3).
+# render-farm/beatedit_feed.py pairs such a job with the same person's other edit jobs (BEATEDIT_BEATS_WITH: this
+# job keeps its open and its share of the beats, each partner's share passes the same face, shot, motion and text
+# bars), and pairing kept 0e2wThS_5oU_502/_6786, Z8nSnsmidQU_1392 and 3Xv_ZjIEKXk_741/_217/_496 on 11/6. But a job
+# the gate refuses is never filed, so the feed never sees it. So one with N >= SHORT_MIN moments of a full-named
+# person (a partner pool beatedit_feed accepts: no role, at most 3 partners) is filed as "short"; the feed renders it,
+# beatedit refuses it alone in seconds off the cached cut, and the pair retry carries it. Nothing is lowered: the
+# kept piece still passes every beatedit gate. Off with BRAIN_SHORT_PAIRS=0.
+SHORT = re.compile(r"only (\d+) distinct moments of the edited debater fit a beat, (\d+) needed")
+SHORT_MIN = 4          # beatedit_feed.partners: ceil(15 / N) - 1 partners, at most 3
+SHORT_PAIRS = os.environ.get("BRAIN_SHORT_PAIRS", "1") != "0"
+ROLE_NAME = re.compile(r"\b(panelist|caller|guest|host|student|audience|crowd|man|woman|guy|girl|member|speaker|"
+                       r"challenger|christian|muslim|atheist|liberal|conservative|participant|person)s?\b", re.I)
+
+
+def short_lend(why, name):
+    """True when a beatedit refusal is only too few beat moments and the feed can pair it (see SHORT above)."""
+    m = SHORT.search(why or "")
+    name = (name or "").strip()
+    return bool(SHORT_PAIRS and m and int(m.group(1)) >= SHORT_MIN and " " in name and not ROLE_NAME.search(name))
+
+
 def drop_cache(key):
     for d in beatedit_dirs()[2].glob(f"clip_{key}_*"):
         shutil.rmtree(d, ignore_errors=True)
@@ -1544,8 +1567,12 @@ def main():
                "words": cap, "judge_request": req, "judge_response": verdict}
         if edit and BEATEDIT_GATE:   # a391: file an edit job only once beatedit has cut the window and found its open
             outcome, why = beatedit_spec(key, job, d / "src.mp4")
+            if outcome == "refused" and short_lend(why, ex.get("a_name" if side == "A" else "b_name") if side else ""):
+                outcome = "short"            # filed for beatedit_feed's pair retry; the cut stays cached for it
             note_gate(key, outcome, why + (f" (open repick of {ex['open_from']})" if ex.get("open_from") else ""))
-            if outcome != "pass":
+            if outcome == "short":
+                print(f"beatedit spec {key}: short, filed for a pair retry: {why}", file=sys.stderr)
+            elif outcome != "pass":
                 print(f"skip edit {key}: beatedit spec {'refused' if outcome == 'refused' else 'did not run'}: {why}",
                       file=sys.stderr)
                 shutil.rmtree(d, ignore_errors=True)
