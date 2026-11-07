@@ -1075,7 +1075,7 @@ def render(jobdir):
         # 1 Chrome worker: with 2, HyperFrames 0.8.85 drops the bottom ~90 px of a <video> layer (the blurred plate)
         for attempt in range(4):  # under heavy load headless Chrome can time out just starting; that is not the clip's fault
             try:
-                sh([*HF, "render", "-o", str(p / "raw.mp4"), "--video-bitrate", "10M", "--workers", "1", "--quiet"], cwd=p, timeout=1800)
+                sh([*HF, "render", "-o", str(p / "raw.mp4"), "--video-bitrate", "10M", "--workers", "1", "--quiet"], cwd=p, timeout=int(os.environ.get("HF_TIMEOUT", "3600")))  # j1396: load ~250 makes 30 min too short
                 break
             except RuntimeError as e:
                 if "Chrome cannot start" not in str(e) or attempt == 3:
