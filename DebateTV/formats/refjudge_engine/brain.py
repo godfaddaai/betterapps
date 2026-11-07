@@ -402,6 +402,82 @@ def edit_repick(title, channel, words, weak, avoid, n):
     return picks, by
 
 
+# The open is a line of the side REF scores higher (11/6, j1217): beatedit edits that side (focus_side) and its open is
+# one whole 3 to 6.3 s sentence they say alone. The edit picker aims its 3 to 6 s sentence at "the better known person"
+# before REF has scored, so on 0e2wThS_5oU_3558 and Z8nSnsmidQU_7684/_6848 the kill phrase sat on the side REF scored
+# lower, and on b75GNVh4ABo_865 Andrew Wilson (REF's side) spoke only in bursts of 3.1 s and less: "no line of the
+# edited debater fits the open", 10 of 24 gate refusals on 11/6. So once REF has scored a pick: when REF's side never
+# talks OPEN_RUN s alone in it (pre-check, no Air run spent), or beatedit spec refuses its open, the picker is asked
+# once more with that side named, for the same clash widened or shifted (WIDEN s either side, 20 to 60 s) to hold one
+# sentence of theirs of 3 to 6 s alone. The new pick faces check(), the second reader, REF (still that side) and
+# beatedit spec again, all unchanged. Off with BRAIN_OPEN_REPICK=0.
+OPEN_REPICK = os.environ.get("BRAIN_OPEN_REPICK", "1") != "0"
+OPEN_RUN = 3.0
+NO_OPEN = "no line of the edited debater fits the open"
+OPEN_NOTE = """
+
+OPEN REPICK. One exchange was picked from {s0:.1f} to {s1:.1f} s, matchup "{matchup}". The edit is of {name} (side
+{letter}, the side the judge scored higher), and its 6 second open is one whole sentence {name} says alone, 3 to 6
+seconds from first word to last, no one else talking inside it. That pick has none ({why}). Return at most ONE exchange
+from this transcript: the same clash (it overlaps {s0:.1f} to {s1:.1f} s), widened or shifted, 20 to 60 seconds, in
+which {name} says such a sentence, a claim, a comeback or a number that lands on its own for a stranger. Keep {name}
+as side {letter} and put that sentence's hardest 2 to 6 words in kill_phrase. Every other test holds as written. When
+{name} never talks 3 seconds alone anywhere near this clash, return no exchanges."""
+
+
+def focus_of(verdict, cap):
+    """The side beatedit edits (beatedit.focus_side): REF's higher average, a tie to the side that talks more."""
+    v = verdict["averageScores"]
+    if v["participantA"] != v["participantB"]:
+        return "A" if v["participantA"] > v["participantB"] else "B"
+    return max(("A", "B"), key=lambda s: sum(1 for c in cap if c["s"] == s))
+
+
+def open_run(cap, side):
+    """The longest stretch the side talks with no word of the other side inside, in seconds (caption word starts, the
+    last word given 0.6 s). Under OPEN_RUN no 3 s sentence of theirs alone can exist, so beatedit cannot find an open."""
+    best, k = 0.0, 0
+    while k < len(cap):
+        if cap[k]["s"] != side:
+            k += 1; continue
+        j = k
+        while j + 1 < len(cap) and cap[j + 1]["s"] == side:
+            j += 1
+        end = min(cap[j + 1]["t"], cap[j]["t"] + 0.6) if j + 1 < len(cap) else cap[j]["t"] + 0.6
+        best, k = max(best, end - cap[k]["t"]), j + 1
+    return round(best, 2)
+
+
+def same_person(a, b):
+    na, nb = {norm(w) for w in (a or "").split() if len(norm(w)) > 2}, {norm(w) for w in (b or "").split() if len(norm(w)) > 2}
+    return bool(na & nb) or norm(a or "") == norm(b or "")
+
+
+def open_repick(title, channel, words, ex, side, why, avoid):
+    """-> (ex, by) or (None, why): the same clash again, widened or shifted so REF's side says a 3 to 6 s line alone."""
+    s0, s1 = ex["picked_at"]
+    name = ex["a_name"] if side == "A" else ex["b_name"]
+    a, b = max(0.0, s0 - WIDEN), s1 + WIDEN
+    text = transcript_text([(t, w) for t, w in words if a <= t <= b])
+    note = OPEN_NOTE.format(s0=s0, s1=s1, matchup=ex.get("matchup", ""), name=name, letter=side, why=why)
+    got, by = ask(PROMPT.format(title=title, channel=channel, n=1, transcript=text, voices=voices_note()) + EDIT_NOTE + note,
+                  SCHEMA)
+    if not got["debate"]["two_sided"]:
+        return None, "the picker says no debate here"
+    for e in got["exchanges"]:
+        if not (a - 1 <= e["start"] and e["end"] <= b + 1 and e["start"] < s1 and s0 < e["end"]):
+            continue   # outside the widened window, or no longer the same clash
+        if any(e["start"] < o["end"] and o["start"] < e["end"] for o in avoid):
+            continue
+        if not same_person(e["a_name"] if side == "A" else e["b_name"], name):
+            continue   # the sides came back swapped: REF's side is not the one asked for
+        bad = check(e, words, edit=True)
+        if bad:
+            return None, f"the repick fails check: {bad}"
+        return e, by
+    return None, f"no repick holds {name} 3 s alone"
+
+
 # Footage beatedit can cut (11/6, ask a391): beatedit.py render refused all 4 edit jobs filed after a366 on the
 # picture, never on the words: DhpfsOSNakY_723 and u14d6ajzHZw_10938 "no line of the edited debater fits the open"
 # (the side REF favours is a crowd member, never on camera for a whole 3 to 6.3 s line), koC8A86BS2k_3087 a blank
@@ -1382,7 +1458,35 @@ def main():
               f"{sum(1 for k in kept if k[2].get('renamed_from'))} renamed, {sum(1 for k in kept if k[2].get('edit'))} edit) of "
               f"{len(exchanges)} exchanges", file=sys.stderr)
         return
+    def repick_open(key, ex, side, why):   # j1217: once per pick, the open on REF's side (OPEN_NOTE)
+        if not OPEN_REPICK or ex.get("open_from"):
+            return
+        try:
+            e2, by2 = open_repick(title, channel, words, ex, side, why, [o for _, _, o, _, _ in kept if o is not ex])
+        except Exception as e:
+            e2, by2 = None, f"open repick failed: {str(e)[-200:]}"
+        if e2 is None:
+            print(f"open repick {key}: none, {by2}", file=sys.stderr); return
+        k2 = f"{vid}_{int(e2['start'])}"
+        if k2 in ledger or any(k == k2 for k, *_ in kept):
+            print(f"open repick {key}: {k2} already in the ledger or kept", file=sys.stderr); return
+        try:
+            r3, r3_by = second_read(title, channel, [(k2, e2)], words, edit=True)
+        except Exception as e:
+            print(f"open repick {key}: second read failed, {e}", file=sys.stderr); return
+        v3, w3, _ = r3.get(k2, ("PULL", "the second reader gave no verdict", []))
+        if v3 == "PULL":
+            print(f"open repick {key} -> {k2}: second reader, pull: {w3}", file=sys.stderr); return
+        e2.update(edit=True, open_from=key, open_side=ex["a_name"] if side == "A" else ex["b_name"],
+                  **({"edit_from": ex["edit_from"]} if ex.get("edit_from") else {}))
+        print(f"open repick {key} -> {k2} ({e2['start']:.0f} to {e2['end']:.0f} s): second reader, {v3.lower()}: {w3}",
+              file=sys.stderr)
+        kept.append((k2, rank, e2, f"{by2} (open repick of {key})", w3))   # the loop below reaches it in turn
+
+    for ex in (k[2] for k in kept):
+        ex["picked_at"] = (ex["start"], ex["end"])   # the window as picked, before the snap below moves it
     for key, rank, ex, read_by, why2 in kept:
+        ex.setdefault("picked_at", (ex["start"], ex["end"]))
         for l in ex["lines"]:
             l["start"] = snap(words, l["start"], l["text"])
         ex["start"] = ex["lines"][0]["start"]  # open on the question itself, never on leftover words
@@ -1402,6 +1506,15 @@ def main():
         if edit and BEATEDIT_GATE and crowd_wins(ex, verdict, title, channel):   # a391: the crowd side is never on
             print(f"skip edit {key}: 1 vs N show and REF favours the crowd side, beatedit finds no open", file=sys.stderr)
             note_gate(key, "crowd"); continue                                    # camera for a whole line
+        side = focus_of(verdict, cap)
+        if edit and ex.get("open_from") and not same_person(ex["a_name"] if side == "A" else ex["b_name"], ex["open_side"]):
+            print(f"skip edit {key}: REF now favours the other side, not {ex['open_side']}", file=sys.stderr); continue
+        if edit and BEATEDIT_GATE and open_run(cap, side) < OPEN_RUN:   # j1217: no Air run on a pick with no open
+            why = f"{NO_OPEN} (pre-check: REF's side talks {open_run(cap, side):.1f} s alone at most)"
+            note_gate(key, "refused", why)
+            print(f"skip edit {key}: {why}", file=sys.stderr)
+            repick_open(key, ex, side, f"{ex['a_name'] if side == 'A' else ex['b_name']} talks {open_run(cap, side):.1f} s alone at most")
+            continue
         d = JOBS / key
         d.mkdir(parents=True, exist_ok=True)
         t0 = max(0, ex["start"] - PAD)
@@ -1421,13 +1534,16 @@ def main():
                "words": cap, "judge_request": req, "judge_response": verdict}
         if edit and BEATEDIT_GATE:   # a391: file an edit job only once beatedit has cut the window and found its open
             outcome, why = beatedit_spec(key, job, d / "src.mp4")
-            note_gate(key, outcome, why)
+            note_gate(key, outcome, why + (f" (open repick of {ex['open_from']})" if ex.get("open_from") else ""))
             if outcome != "pass":
                 print(f"skip edit {key}: beatedit spec {'refused' if outcome == 'refused' else 'did not run'}: {why}",
                       file=sys.stderr)
                 shutil.rmtree(d, ignore_errors=True)
                 if outcome == "refused":
                     drop_cache(key)
+                    if NO_OPEN in why:   # the line was there but beatedit cut none (cuts inside words, off camera)
+                        repick_open(key, ex, side, "every line of theirs here is under 3 s, ends mid thought, or has a "
+                                                   "camera cut inside a word")
                 continue
             print(f"beatedit spec {key}: pass, {why}", file=sys.stderr)
         (d / "job.json").write_text(json.dumps(job, indent=1))
