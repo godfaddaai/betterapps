@@ -734,10 +734,29 @@ def check(ex, words, edit=None):
     if EDIT_:  # the edit's open line may be any of the debater's sentences
         last = [norm(w) for l in lines for w in l["text"].split() if norm(w)]
     if not kill or not any(last[i:i + len(kill)] == kill for i in range(len(last))):
-        return "the kill phrase is not in the last line: the payoff is not the end"
+        return KILL_MISS
     if not ex["retention"].strip() or not ex["hook_topic"].strip():
         return "no reason or no topic given"
     return ""
+
+
+KILL_MISS = "the kill phrase is not in the last line: the payoff is not the end"
+
+
+def end_on_kill(ex):
+    """The picker named a kill phrase that sits in an earlier line, then ran the clip on past it (11/6 logs: 5 of the
+    last 40 videos lost picks this way, e.g. OyVdi1AXE3o_819 and _5339). The cut ends on that line instead, the line
+    after it starts the tail that goes, and the cut faces check() and the second reader from scratch. -> the cut, or
+    None when the phrase is in no earlier line. No rule is loosened: the payoff still has to be the end."""
+    kill = [norm(w) for w in ex.get("kill_phrase", "").split() if norm(w)]
+    lines = ex["lines"]
+    if not kill:
+        return None
+    for k in range(len(lines) - 2, 0, -1):   # the latest earlier line that holds it; keep at least two lines
+        ws = [norm(w) for w in lines[k]["text"].split() if norm(w)]
+        if any(ws[i:i + len(kill)] == kill for i in range(len(ws))):
+            return {**ex, "lines": lines[:k + 1], "end": lines[k + 1]["start"]}
+    return None
 
 
 def snap_end(words, ex):
@@ -1262,6 +1281,12 @@ def main():
     for rank, ex in enumerate(exchanges, 1):  # the picker returns its best first
         key = f"{vid}_{int(ex['start'])}"
         why_not = "already in the ledger" if key in ledger else check(ex, words)
+        if why_not == KILL_MISS and (cut := end_on_kill(ex)) is not None:
+            cut["end"] = snap_end(words, cut)
+            again = check(cut, words)
+            print(f"end on kill {key}: {cut['end'] - cut['start']:.0f} s, {'stands' if not again else again}", file=sys.stderr)
+            if not again:
+                ex.clear(); ex.update(cut); why_not = ""
         if why_not:
             print(f"skip {key}: {why_not}", file=sys.stderr); continue
         stood.append((key, rank, ex))
