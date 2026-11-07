@@ -1535,6 +1535,7 @@ def main():
               file=sys.stderr)
         kept.append((k2, rank, e2, f"{by2} (open repick of {key})", w3))   # the loop below reaches it in turn
 
+    rank = 0   # repick_open files at this rank (it reads the loop variable below)
     for key in [k for k in a.reopen.split(",") if k]:   # REOPEN
         jf = JOBS / key / "job.json"
         if not key.startswith(vid + "_") or not jf.exists():
